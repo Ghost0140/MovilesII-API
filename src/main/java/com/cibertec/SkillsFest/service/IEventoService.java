@@ -1,14 +1,11 @@
 package com.cibertec.SkillsFest.service;
 
-import java.util.List;
-
 import com.cibertec.SkillsFest.entity.Evento;
 
-public interface IEventoService {
+import java.util.List;
 
-	// Para la pantalla del alumno (Cartelera)
+public interface IEventoService {
     List<Evento> obtenerEventosPublicados();
-    
-    // Para la pantalla del Profesor/Organizador
     Evento crearEvento(Evento evento, Long creadorId, Long sedeId);
+    Evento eliminarLogico(Long eventoId);
 }

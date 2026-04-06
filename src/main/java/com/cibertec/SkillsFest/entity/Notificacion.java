@@ -1,10 +1,9 @@
 package com.cibertec.SkillsFest.entity;
 
-
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -26,8 +25,9 @@ public class Notificacion {
     private String titulo;
     private String mensaje;
 
-    private Boolean leida;
+    private Boolean leida = false;
+    private Boolean activo = true;
 
     @Column(name = "creado_en")
-    private Date creadoEn;
+    private LocalDateTime creadoEn;
 }

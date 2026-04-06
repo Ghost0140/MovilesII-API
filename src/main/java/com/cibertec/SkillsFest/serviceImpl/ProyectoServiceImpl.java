@@ -35,17 +35,21 @@ public class ProyectoServiceImpl implements IProyectoService {
 
     @Override
     public List<Proyecto> obtenerTodos() {
-        return proyectoRepository.findAll();
+        return proyectoRepository.findAll()
+                .stream()
+                .filter(p -> !"ELIMINADO".equals(p.getEstado()))
+                .toList();
     }
 
     @Override
     public Page<Proyecto> obtenerTodosPaginado(Pageable pageable) {
-        return proyectoRepository.findAll(pageable);
+        return proyectoRepository.findByEstado("APROBADO", pageable);
     }
 
     @Override
     public Optional<Proyecto> obtenerPorId(Long id) {
-        return proyectoRepository.findById(id);
+        return proyectoRepository.findById(id)
+                .filter(p -> !"ELIMINADO".equals(p.getEstado()));
     }
 
     @Override
@@ -77,10 +81,6 @@ public class ProyectoServiceImpl implements IProyectoService {
             proyecto.setEquipo(null);
         }
 
-        if (proyecto.getTitulo() == null || proyecto.getTitulo().isBlank()) {
-            throw new RuntimeException("El proyecto debe tener un título");
-        }
-
         proyecto.setEstado("BORRADOR");
         return proyectoRepository.save(proyecto);
     }
@@ -89,10 +89,6 @@ public class ProyectoServiceImpl implements IProyectoService {
     public Proyecto actualizar(Long id, Proyecto proyectoActualizado) {
         Proyecto proyecto = proyectoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Proyecto no encontrado"));
-
-        if (!"BORRADOR".equals(proyecto.getEstado())) {
-            throw new RuntimeException("No se puede actualizar un proyecto que no está en BORRADOR");
-        }
 
         if (proyectoActualizado.getTitulo() != null) proyecto.setTitulo(proyectoActualizado.getTitulo());
         if (proyectoActualizado.getResumen() != null) proyecto.setResumen(proyectoActualizado.getResumen());
@@ -110,12 +106,13 @@ public class ProyectoServiceImpl implements IProyectoService {
         Proyecto proyecto = proyectoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Proyecto no encontrado"));
 
-        proyectoRepository.delete(proyecto);
+        proyecto.setEstado("ELIMINADO");
+        proyectoRepository.save(proyecto);
     }
 
     @Override
     public List<Proyecto> obtenerPorEvento(Long eventoId) {
-        return proyectoRepository.findByEventoId(eventoId);
+        return proyectoRepository.findByEventoIdAndEstadoNot(eventoId, "ELIMINADO");
     }
 
     @Override
@@ -128,10 +125,6 @@ public class ProyectoServiceImpl implements IProyectoService {
         Proyecto proyecto = proyectoRepository.findById(proyectoId)
                 .orElseThrow(() -> new RuntimeException("Proyecto no encontrado"));
 
-        if (!"BORRADOR".equals(proyecto.getEstado())) {
-            throw new RuntimeException("Solo se pueden enviar proyectos en BORRADOR");
-        }
-
         proyecto.setEstado("ENVIADO");
         proyecto.setFechaEnvio(LocalDateTime.now());
 
@@ -143,17 +136,13 @@ public class ProyectoServiceImpl implements IProyectoService {
         Proyecto proyecto = proyectoRepository.findById(proyectoId)
                 .orElseThrow(() -> new RuntimeException("Proyecto no encontrado"));
 
-        if (!"ENVIADO".equals(proyecto.getEstado())) {
-            throw new RuntimeException("Solo se pueden aprobar proyectos ENVIADOS");
-        }
-
         proyecto.setEstado("APROBADO");
         Proyecto aprobado = proyectoRepository.save(proyecto);
 
         try {
             talentRadarService.analizarProyecto(proyectoId);
         } catch (Exception e) {
-            log.warn("El proyecto fue aprobado, pero falló Talent Radar: {}", e.getMessage());
+            log.warn("Falló Talent Radar: {}", e.getMessage());
         }
 
         return aprobado;

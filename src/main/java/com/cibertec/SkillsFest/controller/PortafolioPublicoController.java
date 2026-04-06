@@ -76,6 +76,6 @@ public class PortafolioPublicoController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminar(@PathVariable Long id) {
         portafolioService.eliminar(id);
-        return ResponseEntity.ok(Map.of("mensaje", "Portafolio eliminado correctamente"));
+        return ResponseEntity.ok(Map.of("mensaje", "Portafolio eliminado lógicamente"));
     }
 }

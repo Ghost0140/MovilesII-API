@@ -1,23 +1,16 @@
 package com.cibertec.SkillsFest.controller;
 
+import com.cibertec.SkillsFest.entity.Evento;
+import com.cibertec.SkillsFest.service.IEventoService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.cibertec.SkillsFest.entity.Evento;
-import com.cibertec.SkillsFest.service.IEventoService;
-
-import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/eventos")
@@ -25,20 +18,19 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class EventoController {
 
-	private final IEventoService eventoService;
+    private final IEventoService eventoService;
 
-    // --- ENDPOINT PARA ALUMNOS: Ver Cartelera ---
-    // GET: http://localhost:9090/api/eventos/publicados
     @GetMapping("/publicados")
     public ResponseEntity<?> listarEventosPublicados() {
         List<Evento> eventos = eventoService.obtenerEventosPublicados();
+
         if (eventos.isEmpty()) {
             return new ResponseEntity<>(Map.of("mensaje", "No hay eventos en cartelera."), HttpStatus.OK);
         }
+
         return new ResponseEntity<>(eventos, HttpStatus.OK);
     }
 
-    // --- DTO para recibir los datos de creación ---
     public record CrearEventoRequest(
             Long sedeOrganizadoraId,
             String nombre,
@@ -52,13 +44,11 @@ public class EventoController {
             Long creadoPorId
     ) {}
 
-    // --- ENDPOINT PARA PROFESORES: Crear Hackathon/Feria ---
-    // POST: http://localhost:9090/api/eventos
     @PostMapping
     public ResponseEntity<?> crearEvento(@RequestBody CrearEventoRequest request) {
         Map<String, Object> response = new HashMap<>();
+
         try {
-            // Mapeamos los datos básicos
             Evento nuevoEvento = new Evento();
             nuevoEvento.setNombre(request.nombre());
             nuevoEvento.setDescripcion(request.descripcion());
@@ -68,13 +58,15 @@ public class EventoController {
             nuevoEvento.setFechaFinInscripcion(request.fechaFinInscripcion());
             nuevoEvento.setFechaEvento(request.fechaEvento());
             nuevoEvento.setMaxMiembrosEquipo(request.maxMiembrosEquipo());
-            
-            // Valores por defecto
             nuevoEvento.setPermiteEquipos(true);
             nuevoEvento.setPermiteVotacionPopular(false);
 
-            Evento eventoCreado = eventoService.crearEvento(nuevoEvento, request.creadoPorId(), request.sedeOrganizadoraId());
-            
+            Evento eventoCreado = eventoService.crearEvento(
+                    nuevoEvento,
+                    request.creadoPorId(),
+                    request.sedeOrganizadoraId()
+            );
+
             response.put("mensaje", "Evento creado con éxito. Está en estado BORRADOR.");
             response.put("evento", eventoCreado);
             return new ResponseEntity<>(response, HttpStatus.CREATED);
@@ -84,5 +76,15 @@ public class EventoController {
             response.put("detalle", e.getMessage());
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> eliminarLogico(@PathVariable Long id) {
+        Evento evento = eventoService.eliminarLogico(id);
+
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Evento eliminado lógicamente",
+                "evento", evento
+        ));
     }
 }

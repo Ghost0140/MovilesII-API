@@ -13,8 +13,8 @@ public interface IUsuarioRepository extends JpaRepository<Usuario, Long> {
     Optional<Usuario> findByNumeroDocumento(String numeroDocumento);
     Optional<Usuario> findByGithubUsername(String githubUsername);
 
-    List<Usuario> findBySedeId(Long sedeId);
-    Page<Usuario> findBySedeId(Long sedeId, Pageable pageable);
+    List<Usuario> findBySedeIdAndActivoTrue(Long sedeId);
+    Page<Usuario> findBySedeIdAndActivoTrue(Long sedeId, Pageable pageable);
 
     List<Usuario> findByActivo(Boolean activo);
     Page<Usuario> findByActivo(Boolean activo, Pageable pageable);

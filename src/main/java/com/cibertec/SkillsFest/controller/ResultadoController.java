@@ -88,6 +88,6 @@ public class ResultadoController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminar(@PathVariable Long id) {
         resultadoService.eliminar(id);
-        return ResponseEntity.ok(Map.of("mensaje", "Resultado eliminado exitosamente"));
+        return ResponseEntity.ok(Map.of("mensaje", "Resultado eliminado lógicamente"));
     }
 }
