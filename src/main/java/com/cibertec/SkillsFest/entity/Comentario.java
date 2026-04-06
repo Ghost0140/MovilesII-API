@@ -1,10 +1,9 @@
 package com.cibertec.SkillsFest.entity;
 
-
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -27,8 +26,8 @@ public class Comentario {
     private Usuario usuario;
 
     private String contenido;
-    private Boolean visible;
+    private Boolean visible = true;
 
     @Column(name = "creado_en")
-    private Date creadoEn;
+    private LocalDateTime creadoEn;
 }

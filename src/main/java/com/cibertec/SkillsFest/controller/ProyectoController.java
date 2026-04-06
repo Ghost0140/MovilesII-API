@@ -185,6 +185,6 @@ public class ProyectoController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminar(@PathVariable Long id) {
         proyectoService.eliminar(id);
-        return ResponseEntity.ok(Map.of("mensaje", "Proyecto eliminado exitosamente"));
+        return ResponseEntity.ok(Map.of("mensaje", "Proyecto eliminado lógicamente"));
     }
 }

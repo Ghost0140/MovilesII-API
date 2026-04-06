@@ -1,18 +1,15 @@
 package com.cibertec.SkillsFest.entity;
 
-
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
-import java.util.Date;
-
-import org.hibernate.annotations.CreationTimestamp;
-
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import java.time.LocalDateTime;
 
 @Entity
-//Lo que hace: Cuando conviertas esto a JSON, escóndeme esos objetos fantasma
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Getter
 @Setter
@@ -25,11 +22,10 @@ public class Evento {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // FetchType.LAZY para no cargar toda la Sede si solo pides el Evento
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sede_organizadora_id", nullable = false)
     private Sede sedeOrganizadora;
-    
+
     @Column(nullable = false, length = 200)
     private String nombre;
 
@@ -42,7 +38,6 @@ public class Evento {
     @Column(nullable = false, length = 20)
     private String alcance = "TODAS_SEDES";
 
-    // Usamos LocalDate porque en SQL son tipo DATE (sin horas)
     @Column(name = "fecha_inicio_inscripcion", nullable = false)
     private LocalDate fechaInicioInscripcion;
 
@@ -52,15 +47,13 @@ public class Evento {
     @Column(name = "fecha_evento", nullable = false)
     private LocalDate fechaEvento;
 
-    //Valores por defecto para booleanos y numéricos
     @Column(name = "permite_equipos")
     private Boolean permiteEquipos = true;
-    
+
     private Integer maxMiembrosEquipo;
-    
+
     private Boolean permiteVotacionPopular = false;
 
-    // Valor por defecto según el ciclo de vida del evento
     @Column(nullable = false, length = 20)
     private String estado = "BORRADOR";
 
@@ -73,5 +66,9 @@ public class Evento {
 
     @CreationTimestamp
     @Column(name = "creado_en", updatable = false)
-    private Date creadoEn;
+    private LocalDateTime creadoEn;
+
+    @UpdateTimestamp
+    @Column(name = "actualizado_en")
+    private LocalDateTime actualizadoEn;
 }

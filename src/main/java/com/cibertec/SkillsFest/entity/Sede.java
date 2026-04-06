@@ -1,11 +1,12 @@
 package com.cibertec.SkillsFest.entity;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
-//Lo que hace: Cuando conviertas esto a JSON, escóndeme esos objetos fantasma
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Getter
 @Setter
@@ -30,5 +31,11 @@ public class Sede {
     @Column(columnDefinition = "TEXT")
     private String direccion;
 
-    private Boolean activo;
+    private Boolean activo = true;
+
+    @Column(name = "creado_en", updatable = false)
+    private LocalDateTime creadoEn;
+
+    @Column(name = "actualizado_en")
+    private LocalDateTime actualizadoEn;
 }

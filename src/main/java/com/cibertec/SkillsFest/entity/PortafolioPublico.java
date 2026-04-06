@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -22,10 +22,10 @@ public class PortafolioPublico {
     @JoinColumn(name = "usuario_id", nullable = false, unique = true)
     private Usuario usuario;
 
-    private Boolean visible;
+    private Boolean visible = true;
+    private Boolean activo = true;
 
     private String slug;
-
     private String titulo;
     private String bio;
 
@@ -49,5 +49,5 @@ public class PortafolioPublico {
     private BigDecimal radarTesting;
 
     @Column(name = "actualizado_en")
-    private Date actualizadoEn;
+    private LocalDateTime actualizadoEn;
 }

@@ -11,18 +11,16 @@ import com.cibertec.SkillsFest.repository.IVotoPopularRepository;
 import com.cibertec.SkillsFest.service.IResultadoService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
-@Slf4j
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -35,7 +33,10 @@ public class ResultadoServiceImpl implements IResultadoService {
 
     @Override
     public List<Resultado> obtenerTodos() {
-        return resultadoRepository.findAll();
+        return resultadoRepository.findAll()
+                .stream()
+                .filter(r -> !"ELIMINADO".equals(r.getEstado()))
+                .toList();
     }
 
     @Override
@@ -45,7 +46,8 @@ public class ResultadoServiceImpl implements IResultadoService {
 
     @Override
     public Optional<Resultado> obtenerPorId(Long id) {
-        return resultadoRepository.findById(id);
+        return resultadoRepository.findById(id)
+                .filter(r -> !"ELIMINADO".equals(r.getEstado()));
     }
 
     @Override
@@ -63,7 +65,7 @@ public class ResultadoServiceImpl implements IResultadoService {
         if (resultadoActualizado.getPuntajeTotal() != null) resultado.setPuntajeTotal(resultadoActualizado.getPuntajeTotal());
         if (resultadoActualizado.getPosicion() != null) resultado.setPosicion(resultadoActualizado.getPosicion());
         if (resultadoActualizado.getCategoriaPremio() != null) resultado.setCategoriaPremio(resultadoActualizado.getCategoriaPremio());
-        if (resultadoActualizado.getPublicado() != null) resultado.setPublicado(resultadoActualizado.getPublicado());
+        if (resultadoActualizado.getEstado() != null) resultado.setEstado(resultadoActualizado.getEstado());
 
         return resultadoRepository.save(resultado);
     }
@@ -72,22 +74,20 @@ public class ResultadoServiceImpl implements IResultadoService {
     public void eliminar(Long id) {
         Resultado resultado = resultadoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Resultado no encontrado"));
-        resultadoRepository.delete(resultado);
+
+        resultado.setEstado("ELIMINADO");
+        resultadoRepository.save(resultado);
     }
 
     @Override
     public List<Resultado> obtenerPorEvento(Long eventoId) {
-        return resultadoRepository.findByEventoId(eventoId);
+        return resultadoRepository.findByEventoIdAndEstadoNot(eventoId, "ELIMINADO");
     }
 
     @Override
     public Resultado calcularResultados(Long eventoId, Long proyectoId) {
         Proyecto proyecto = proyectoRepository.findById(proyectoId)
                 .orElseThrow(() -> new RuntimeException("Proyecto no encontrado"));
-
-        if (!proyecto.getEvento().getId().equals(eventoId)) {
-            throw new RuntimeException("El proyecto no pertenece al evento indicado");
-        }
 
         List<Evaluacion> evaluaciones = evaluacionRepository.findByProyectoId(proyectoId);
         List<VotoPopular> votos = votoPopularRepository.findByProyectoId(proyectoId);
@@ -108,7 +108,7 @@ public class ResultadoServiceImpl implements IResultadoService {
         resultado.setPuntajeJurados(bd(promedioJurados));
         resultado.setPuntajePopular(bd(puntajePopular));
         resultado.setPuntajeTotal(bd(puntajeTotal));
-        resultado.setPublicado(false);
+        resultado.setEstado("BORRADOR");
 
         Resultado guardado = resultadoRepository.save(resultado);
         recalcularPosiciones(eventoId);
@@ -118,18 +118,12 @@ public class ResultadoServiceImpl implements IResultadoService {
 
     @Override
     public void publicarResultados(Long eventoId) {
-        List<Resultado> resultados = resultadoRepository.findByEventoId(eventoId);
-
-        if (resultados.isEmpty()) {
-            throw new RuntimeException("No hay resultados para publicar en este evento");
-        }
-
+        List<Resultado> resultados = resultadoRepository.findByEventoIdAndEstadoNot(eventoId, "ELIMINADO");
         recalcularPosiciones(eventoId);
-        resultados = resultadoRepository.findByEventoId(eventoId);
 
         for (Resultado r : resultados) {
-            r.setPublicado(true);
-            r.setFechaPublicacion(new Date());
+            r.setEstado("PUBLICADO");
+            r.setFechaPublicacion(LocalDateTime.now());
 
             if (r.getPosicion() != null) {
                 if (r.getPosicion() == 1) r.setCategoriaPremio("ORO");
@@ -142,7 +136,7 @@ public class ResultadoServiceImpl implements IResultadoService {
     }
 
     private void recalcularPosiciones(Long eventoId) {
-        List<Resultado> resultados = resultadoRepository.findByEventoId(eventoId)
+        List<Resultado> resultados = resultadoRepository.findByEventoIdAndEstadoNot(eventoId, "ELIMINADO")
                 .stream()
                 .sorted(Comparator.comparing(Resultado::getPuntajeTotal).reversed())
                 .toList();

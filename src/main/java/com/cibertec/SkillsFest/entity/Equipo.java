@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -42,9 +43,14 @@ public class Equipo {
     @JoinColumn(name = "asesor_id")
     private Usuario asesor;
 
-    private Boolean aprobado = false;
+    @Column(nullable = false, length = 20)
+    private String estado = "PENDIENTE";
 
     @CreationTimestamp
     @Column(name = "creado_en", updatable = false)
     private LocalDateTime creadoEn;
+
+    @UpdateTimestamp
+    @Column(name = "actualizado_en")
+    private LocalDateTime actualizadoEn;
 }

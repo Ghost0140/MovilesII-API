@@ -110,7 +110,7 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
 
     @Override
     public void generarRankingsPorArea(Long eventoId) {
-        List<Proyecto> proyectos = proyectoRepository.findByEventoId(eventoId);
+        List<Proyecto> proyectos = proyectoRepository.findByEventoIdAndEstadoNot(eventoId, "ELIMINADO");
         if (proyectos.isEmpty()) return;
 
         List<Long> proyectoIds = proyectos.stream().map(Proyecto::getId).toList();
@@ -123,16 +123,16 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
 
         rankingAreaRepository.deleteAll(rankingAreaRepository.findByEventoId(eventoId));
 
-        guardarRankingArea(eventoId, contribuciones, "FRONTEND");
-        guardarRankingArea(eventoId, contribuciones, "BACKEND");
-        guardarRankingArea(eventoId, contribuciones, "BD");
-        guardarRankingArea(eventoId, contribuciones, "MOBILE");
-        guardarRankingArea(eventoId, contribuciones, "TESTING");
+        guardarRankingArea(proyectos.get(0).getEvento(), contribuciones, "FRONTEND");
+        guardarRankingArea(proyectos.get(0).getEvento(), contribuciones, "BACKEND");
+        guardarRankingArea(proyectos.get(0).getEvento(), contribuciones, "BD");
+        guardarRankingArea(proyectos.get(0).getEvento(), contribuciones, "MOBILE");
+        guardarRankingArea(proyectos.get(0).getEvento(), contribuciones, "TESTING");
     }
 
     @Override
     public void actualizarPortafolioRadar(Long usuarioId) {
-        PortafolioPublico portfolio = portfolioRepository.findByUsuarioId(usuarioId)
+        PortafolioPublico portfolio = portfolioRepository.findByUsuarioIdAndActivoTrue(usuarioId)
                 .orElseThrow(() -> new RuntimeException("Portafolio no encontrado"));
 
         List<Contribucion> contribuciones = contribucionRepository.findByUsuarioId(usuarioId);
@@ -152,7 +152,7 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
         return rankingAreaRepository.findByEventoIdAndArea(eventoId, area.toUpperCase());
     }
 
-    private void guardarRankingArea(Long eventoId, List<Contribucion> contribuciones, String area) {
+    private void guardarRankingArea(Evento evento, List<Contribucion> contribuciones, String area) {
         Map<Long, Double> scorePorUsuario = new HashMap<>();
 
         for (Contribucion c : contribuciones) {
@@ -178,7 +178,7 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
                     .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
             RankingArea ranking = new RankingArea();
-            ranking.setEvento(proyectoRepository.findByEventoId(eventoId).get(0).getEvento());
+            ranking.setEvento(evento);
             ranking.setUsuario(usuario);
             ranking.setArea(area);
             ranking.setScore(bd(entry.getValue()));

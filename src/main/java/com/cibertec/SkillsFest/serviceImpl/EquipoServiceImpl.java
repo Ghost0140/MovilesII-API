@@ -41,20 +41,11 @@ public class EquipoServiceImpl implements IEquipoService {
 
         int totalMiembros = 1 + (miembrosIds != null ? miembrosIds.size() : 0);
         if (evento.getMaxMiembrosEquipo() != null && totalMiembros > evento.getMaxMiembrosEquipo()) {
-            throw new RuntimeException("El equipo supera el límite máximo permitido de " + evento.getMaxMiembrosEquipo() + " miembros.");
+            throw new RuntimeException("El equipo supera el límite máximo permitido.");
         }
 
         Usuario lider = usuarioRepository.findById(liderId)
                 .orElseThrow(() -> new RuntimeException("Líder no encontrado"));
-
-        if (lider.getRoles() == null || !lider.getRoles().contains("ESTUDIANTE")) {
-            throw new RuntimeException("El líder del equipo debe ser un ESTUDIANTE.");
-        }
-
-        if ("SEDE".equals(evento.getAlcance())
-                && !lider.getSede().getId().equals(evento.getSedeOrganizadora().getId())) {
-            throw new RuntimeException("En eventos de SEDE, el líder debe pertenecer a la sede organizadora.");
-        }
 
         String miembrosJson = "[]";
         try {
@@ -62,34 +53,30 @@ public class EquipoServiceImpl implements IEquipoService {
                 miembrosJson = objectMapper.writeValueAsString(miembrosIds);
             }
         } catch (Exception e) {
-            throw new RuntimeException("Error al procesar los miembros del equipo", e);
+            throw new RuntimeException("Error al procesar los miembros");
         }
 
         Usuario asesor = null;
         if (asesorId != null) {
             asesor = usuarioRepository.findById(asesorId)
                     .orElseThrow(() -> new RuntimeException("Asesor no encontrado"));
-
-            if (asesor.getRoles() == null || !asesor.getRoles().contains("PROFESOR")) {
-                throw new RuntimeException("El asesor debe tener el rol de PROFESOR.");
-            }
         }
 
-        Equipo nuevoEquipo = new Equipo();
-        nuevoEquipo.setEvento(evento);
-        nuevoEquipo.setSede(lider.getSede());
-        nuevoEquipo.setNombre(nombreEquipo);
-        nuevoEquipo.setLider(lider);
-        nuevoEquipo.setMiembros(miembrosJson);
-        nuevoEquipo.setAsesor(asesor);
-        nuevoEquipo.setAprobado(false);
+        Equipo equipo = new Equipo();
+        equipo.setEvento(evento);
+        equipo.setSede(lider.getSede());
+        equipo.setNombre(nombreEquipo);
+        equipo.setLider(lider);
+        equipo.setMiembros(miembrosJson);
+        equipo.setAsesor(asesor);
+        equipo.setEstado("PENDIENTE");
 
-        return equipoRepository.save(nuevoEquipo);
+        return equipoRepository.save(equipo);
     }
 
     @Override
     public List<Equipo> obtenerEquiposPorEvento(Long eventoId) {
-        return equipoRepository.findByEventoId(eventoId);
+        return equipoRepository.findByEventoIdAndEstadoNot(eventoId, "ELIMINADO");
     }
 
     @Override
@@ -98,15 +85,20 @@ public class EquipoServiceImpl implements IEquipoService {
         Equipo equipo = equipoRepository.findById(equipoId)
                 .orElseThrow(() -> new RuntimeException("Equipo no encontrado"));
 
-        Usuario organizador = usuarioRepository.findById(organizadorId)
+        usuarioRepository.findById(organizadorId)
                 .orElseThrow(() -> new RuntimeException("Organizador no encontrado"));
 
-        if (organizador.getRoles() == null ||
-                (!organizador.getRoles().contains("ORGANIZADOR") && !organizador.getRoles().contains("PROFESOR"))) {
-            throw new RuntimeException("No tienes permisos necesarios para aprobar equipos.");
-        }
+        equipo.setEstado("APROBADO");
+        return equipoRepository.save(equipo);
+    }
 
-        equipo.setAprobado(true);
+    @Override
+    @Transactional
+    public Equipo eliminarLogico(Long equipoId) {
+        Equipo equipo = equipoRepository.findById(equipoId)
+                .orElseThrow(() -> new RuntimeException("Equipo no encontrado"));
+
+        equipo.setEstado("ELIMINADO");
         return equipoRepository.save(equipo);
     }
 }

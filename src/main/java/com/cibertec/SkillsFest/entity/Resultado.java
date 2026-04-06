@@ -2,9 +2,11 @@ package com.cibertec.SkillsFest.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -40,8 +42,17 @@ public class Resultado {
     @Column(name = "categoria_premio")
     private String categoriaPremio;
 
-    private Boolean publicado;
+    @Column(nullable = false, length = 20)
+    private String estado = "BORRADOR";
 
     @Column(name = "fecha_publicacion")
-    private Date fechaPublicacion;
+    private LocalDateTime fechaPublicacion;
+
+    @CreationTimestamp
+    @Column(name = "creado_en", updatable = false)
+    private LocalDateTime creadoEn;
+
+    @UpdateTimestamp
+    @Column(name = "actualizado_en")
+    private LocalDateTime actualizadoEn;
 }

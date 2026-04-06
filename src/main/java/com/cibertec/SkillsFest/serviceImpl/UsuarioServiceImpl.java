@@ -7,7 +7,6 @@ import com.cibertec.SkillsFest.repository.IUsuarioRepository;
 import com.cibertec.SkillsFest.service.IUsuarioService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -15,7 +14,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 
-@Slf4j
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -36,29 +34,20 @@ public class UsuarioServiceImpl implements IUsuarioService {
 
     @Override
     public Optional<Usuario> obtenerPorId(Long id) {
-        return usuarioRepository.findById(id);
+        return usuarioRepository.findById(id)
+                .filter(Usuario::getActivo);
     }
 
     @Override
     public Optional<Usuario> obtenerPorEmail(String email) {
-        return usuarioRepository.findByEmail(email);
+        return usuarioRepository.findByEmail(email)
+                .filter(Usuario::getActivo);
     }
 
     @Override
     public Usuario crear(Usuario usuario, Long sedeId) {
         if (usuarioRepository.existsByEmail(usuario.getEmail())) {
             throw new RuntimeException("Ya existe un usuario con ese email");
-        }
-
-        if (usuario.getNumeroDocumento() != null &&
-                usuarioRepository.existsByNumeroDocumento(usuario.getNumeroDocumento())) {
-            throw new RuntimeException("Ya existe un usuario con ese documento");
-        }
-
-        if (usuario.getGithubUsername() != null &&
-                !usuario.getGithubUsername().isBlank() &&
-                usuarioRepository.existsByGithubUsername(usuario.getGithubUsername())) {
-            throw new RuntimeException("Ya existe un usuario con ese githubUsername");
         }
 
         Sede sede = sedeRepository.findById(sedeId)
@@ -83,7 +72,6 @@ public class UsuarioServiceImpl implements IUsuarioService {
         if (usuarioActualizado.getApellidos() != null) usuario.setApellidos(usuarioActualizado.getApellidos());
         if (usuarioActualizado.getCarrera() != null) usuario.setCarrera(usuarioActualizado.getCarrera());
         if (usuarioActualizado.getCiclo() != null) usuario.setCiclo(usuarioActualizado.getCiclo());
-        if (usuarioActualizado.getRoles() != null) usuario.setRoles(usuarioActualizado.getRoles());
         if (usuarioActualizado.getGithubUsername() != null) usuario.setGithubUsername(usuarioActualizado.getGithubUsername());
 
         return usuarioRepository.save(usuario);
@@ -100,6 +88,6 @@ public class UsuarioServiceImpl implements IUsuarioService {
 
     @Override
     public List<Usuario> obtenerPorSede(Long sedeId) {
-        return usuarioRepository.findBySedeId(sedeId);
+        return usuarioRepository.findBySedeIdAndActivoTrue(sedeId);
     }
 }

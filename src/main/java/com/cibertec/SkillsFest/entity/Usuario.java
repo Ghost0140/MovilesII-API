@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -58,4 +59,8 @@ public class Usuario {
     @CreationTimestamp
     @Column(name = "creado_en", updatable = false)
     private LocalDateTime creadoEn;
+
+    @UpdateTimestamp
+    @Column(name = "actualizado_en")
+    private LocalDateTime actualizadoEn;
 }

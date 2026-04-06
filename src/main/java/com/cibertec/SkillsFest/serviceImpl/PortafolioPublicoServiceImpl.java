@@ -5,12 +5,10 @@ import com.cibertec.SkillsFest.repository.IPortafolioPublicoRepository;
 import com.cibertec.SkillsFest.service.IPortafolioPublicoService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
-@Slf4j
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -20,21 +18,25 @@ public class PortafolioPublicoServiceImpl implements IPortafolioPublicoService {
 
     @Override
     public Optional<PortafolioPublico> obtenerPorId(Long id) {
-        return portfolioRepository.findById(id);
+        return portfolioRepository.findById(id)
+                .filter(PortafolioPublico::getActivo);
     }
 
     @Override
     public Optional<PortafolioPublico> obtenerPorUsuario(Long usuarioId) {
-        return portfolioRepository.findByUsuarioId(usuarioId);
+        return portfolioRepository.findByUsuarioIdAndActivoTrue(usuarioId);
     }
 
     @Override
     public Optional<PortafolioPublico> obtenerPorSlug(String slug) {
-        return portfolioRepository.findBySlug(slug);
+        return portfolioRepository.findBySlugAndActivoTrue(slug);
     }
 
     @Override
     public PortafolioPublico crear(PortafolioPublico portfolio) {
+        if (portfolio.getActivo() == null) {
+            portfolio.setActivo(true);
+        }
         return portfolioRepository.save(portfolio);
     }
 
@@ -55,6 +57,8 @@ public class PortafolioPublicoServiceImpl implements IPortafolioPublicoService {
     public void eliminar(Long id) {
         PortafolioPublico portfolio = portfolioRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Portafolio no encontrado"));
-        portfolioRepository.delete(portfolio);
+
+        portfolio.setActivo(false);
+        portfolioRepository.save(portfolio);
     }
 }
