@@ -1,19 +1,13 @@
 package com.cibertec.SkillsFest.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
-
-import java.time.LocalDateTime;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
-
 import org.hibernate.annotations.CreationTimestamp;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import java.time.LocalDateTime;
 
 @Entity
-//Lo que hace: Cuando conviertas esto a JSON, escóndeme esos objetos fantasma
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Getter
 @Setter
@@ -26,8 +20,6 @@ public class Usuario {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Mejora: Usar LAZY evita que Spring cargue los datos de la Sede 
-    // cada vez que buscas un Usuario, mejorando el rendimiento.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sede_id", nullable = false)
     private Sede sede;
@@ -49,14 +41,18 @@ public class Usuario {
 
     @Column(length = 150)
     private String carrera;
+
     private Integer ciclo;
 
-    @Column(name = "codigo_estudiante")
+    @Column(name = "codigo_estudiante", unique = true, length = 20)
     private String codigoEstudiante;
 
+    @Column(name = "github_username", unique = true, length = 100)
+    private String githubUsername;
+
     @Column(name = "roles")
-    private String roles;
-    
+    private String roles = "ESTUDIANTE";
+
     private Boolean activo = true;
 
     @CreationTimestamp

@@ -1,16 +1,17 @@
 package com.cibertec.SkillsFest.entity;
 
-
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 @Table(name = "proyectos")
 public class Proyecto {
 
@@ -18,43 +19,46 @@ public class Proyecto {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "evento_id", nullable = false)
     private Evento evento;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "equipo_id")
     private Equipo equipo;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id")
     private Usuario usuario;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 200)
     private String titulo;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String resumen;
 
+    @Column(columnDefinition = "TEXT")
     private String descripcion;
 
-    @Column(name = "repositorio_url")
+    @Column(name = "repositorio_url", columnDefinition = "TEXT")
     private String repositorioUrl;
 
-    @Column(name = "video_url")
+    @Column(name = "video_url", columnDefinition = "TEXT")
     private String videoUrl;
 
-    @Column(name = "demo_url")
+    @Column(name = "demo_url", columnDefinition = "TEXT")
     private String demoUrl;
 
     @Column(columnDefinition = "json")
     private String tecnologias;
 
-    private String estado;
+    @Column(length = 20)
+    private String estado = "BORRADOR";
 
     @Column(name = "fecha_envio")
-    private Date fechaEnvio;
+    private LocalDateTime fechaEnvio;
 
-    @Column(name = "creado_en")
-    private Date creadoEn;
+    @CreationTimestamp
+    @Column(name = "creado_en", updatable = false)
+    private LocalDateTime creadoEn;
 }

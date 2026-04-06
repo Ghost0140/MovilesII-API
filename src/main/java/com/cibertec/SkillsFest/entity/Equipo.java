@@ -1,19 +1,13 @@
 package com.cibertec.SkillsFest.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
-
-import java.time.LocalDate;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
-
 import org.hibernate.annotations.CreationTimestamp;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import java.time.LocalDateTime;
 
 @Entity
-//Lo que hace: Cuando conviertas esto a JSON, escóndeme esos objetos fantasma
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Getter
 @Setter
@@ -52,5 +46,5 @@ public class Equipo {
 
     @CreationTimestamp
     @Column(name = "creado_en", updatable = false)
-    private LocalDate creadoEn;
+    private LocalDateTime creadoEn;
 }

@@ -1,18 +1,20 @@
 package com.cibertec.SkillsFest.entity;
 
-
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.Date;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "contribuciones",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"repositorio_id","usuario_id"}))
+@Table(
+        name = "contribuciones",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"repositorio_id", "usuario_id"})
+)
 public class Contribucion {
 
     @Id
@@ -33,15 +35,24 @@ public class Contribucion {
     @Column(name = "total_lineas")
     private Integer totalLineas;
 
-    private Double scoreFrontend;
-    private Double scoreBackend;
-    private Double scoreBd;
-    private Double scoreMobile;
-    private Double scoreTesting;
+    @Column(name = "score_frontend", precision = 5, scale = 2)
+    private BigDecimal scoreFrontend;
 
-    @Column(columnDefinition = "json")
+    @Column(name = "score_backend", precision = 5, scale = 2)
+    private BigDecimal scoreBackend;
+
+    @Column(name = "score_bd", precision = 5, scale = 2)
+    private BigDecimal scoreBd;
+
+    @Column(name = "score_mobile", precision = 5, scale = 2)
+    private BigDecimal scoreMobile;
+
+    @Column(name = "score_testing", precision = 5, scale = 2)
+    private BigDecimal scoreTesting;
+
+    @Column(name = "tecnologias_detectadas", columnDefinition = "json")
     private String tecnologiasDetectadas;
 
     @Column(name = "analizado_en")
-    private Date analizadoEn;
+    private LocalDateTime analizadoEn;
 }

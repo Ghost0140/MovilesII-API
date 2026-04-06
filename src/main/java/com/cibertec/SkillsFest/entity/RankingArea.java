@@ -1,8 +1,9 @@
 package com.cibertec.SkillsFest.entity;
 
-
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.math.BigDecimal;
 
 @Entity
 @Getter
@@ -27,7 +28,8 @@ public class RankingArea {
 
     private String area;
 
-    private Double score;
+    @Column(precision = 10, scale = 2)
+    private BigDecimal score;
 
     private Integer posicion;
 }

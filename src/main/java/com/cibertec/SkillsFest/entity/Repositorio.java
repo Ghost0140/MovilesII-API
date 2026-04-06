@@ -1,17 +1,16 @@
 package com.cibertec.SkillsFest.entity;
 
-
-
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 @Table(name = "repositorios")
 public class Repositorio {
 
@@ -19,7 +18,8 @@ public class Repositorio {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    // Relación con Proyecto
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "proyecto_id", nullable = false)
     private Proyecto proyecto;
 
@@ -31,9 +31,11 @@ public class Repositorio {
     @Column(name = "total_commits")
     private Integer totalCommits;
 
-    @Column(columnDefinition = "json")
+    // Guardamos los lenguajes como JSON (String)
+    @Column(columnDefinition = "TEXT")
     private String lenguajes;
 
+    // Usamos LocalDateTime (mejor que Date)
     @Column(name = "ultimo_analisis")
-    private Date ultimoAnalisis;
+    private LocalDateTime ultimoAnalisis;
 }

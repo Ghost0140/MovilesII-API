@@ -1,10 +1,9 @@
 package com.cibertec.SkillsFest.entity;
 
-
-
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.util.Date;
 
 @Entity
@@ -32,8 +31,8 @@ public class Evaluacion {
     @JoinColumn(name = "criterio_id", nullable = false)
     private CriterioEvaluacion criterio;
 
-    @Column(nullable = false)
-    private Double puntaje;
+    @Column(nullable = false, precision = 5, scale = 2)
+    private BigDecimal puntaje;
 
     private String comentario;
 

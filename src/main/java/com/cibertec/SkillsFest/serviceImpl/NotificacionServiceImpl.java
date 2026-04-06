@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -20,12 +19,8 @@ public class NotificacionServiceImpl implements NotificacionService {
 
     @Override
     public Notificacion enviar(Notificacion notificacion) {
-        if (notificacion.getCreadoEn() == null) {
-            notificacion.setCreadoEn(new Date());
-        }
-        if (notificacion.getLeida() == null) {
-            notificacion.setLeida(false);
-        }
+        if (notificacion.getCreadoEn() == null) notificacion.setCreadoEn(new Date());
+        if (notificacion.getLeida() == null) notificacion.setLeida(false);
         return notificacionRepository.save(notificacion);
     }
 
@@ -36,19 +31,12 @@ public class NotificacionServiceImpl implements NotificacionService {
 
     @Override
     public List<Notificacion> listarPorUsuario(Long usuarioId) {
-        return notificacionRepository.findAll().stream()
-                .filter(n -> n.getUsuario() != null && n.getUsuario().getId().equals(usuarioId))
-                .sorted((a, b) -> b.getCreadoEn().compareTo(a.getCreadoEn()))
-                .collect(Collectors.toList());
+        return notificacionRepository.findByUsuarioIdOrderByCreadoEnDesc(usuarioId);
     }
 
     @Override
     public List<Notificacion> listarNoLeidasPorUsuario(Long usuarioId) {
-        return notificacionRepository.findAll().stream()
-                .filter(n -> n.getUsuario() != null && n.getUsuario().getId().equals(usuarioId))
-                .filter(n -> !n.getLeida())
-                .sorted((a, b) -> b.getCreadoEn().compareTo(a.getCreadoEn()))
-                .collect(Collectors.toList());
+        return notificacionRepository.findByUsuarioIdAndLeidaFalseOrderByCreadoEnDesc(usuarioId);
     }
 
     @Override
