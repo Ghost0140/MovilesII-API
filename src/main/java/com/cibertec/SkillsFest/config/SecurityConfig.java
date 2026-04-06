@@ -11,23 +11,14 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableWebSecurity
 public class SecurityConfig {
 
-	@Bean
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // 1. Desactivar CSRF: Vital para que Postman y React puedan hacer POST
-            .csrf(AbstractHttpConfigurer::disable)
-            
-            // 2. Configurar las rutas
-            .authorizeHttpRequests(auth -> auth
-                // Dejamos pública nuestra ruta de prueba por ahora
-                .requestMatchers("/api/equipos/**").permitAll() 
-                // --- NUEVA LÍNEA PARA LAS SEDES ---
-                .requestMatchers("/api/sedes/**").permitAll() 
-                
-                .requestMatchers("/api/eventos/**").permitAll()
-                           
-                .anyRequest().authenticated()
-            );
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/**").permitAll()
+                        .anyRequest().authenticated()
+                );
 
         return http.build();
     }

@@ -6,10 +6,9 @@ import com.cibertec.SkillsFest.service.ContribucionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -19,17 +18,20 @@ public class ContribucionServiceImpl implements ContribucionService {
 
     @Override
     public Contribucion guardar(Contribucion contribucion) {
-        // Validar unicidad (repositorio + usuario)
-        Optional<Contribucion> existente = obtenerPorRepositorioYUsuario(
-                contribucion.getRepositorio().getId(),
-                contribucion.getUsuario().getId()
-        );
-        if (existente.isPresent()) {
+        Optional<Contribucion> existente = contribucionRepository
+                .findByRepositorioIdAndUsuarioId(
+                        contribucion.getRepositorio().getId(),
+                        contribucion.getUsuario().getId()
+                );
+
+        if (existente.isPresent() && (contribucion.getId() == null || !existente.get().getId().equals(contribucion.getId()))) {
             throw new RuntimeException("Ya existe una contribución para este repositorio y usuario");
         }
+
         if (contribucion.getAnalizadoEn() == null) {
-            contribucion.setAnalizadoEn(new Date());
+            contribucion.setAnalizadoEn(LocalDateTime.now());
         }
+
         return contribucionRepository.save(contribucion);
     }
 
@@ -45,24 +47,17 @@ public class ContribucionServiceImpl implements ContribucionService {
 
     @Override
     public List<Contribucion> listarPorRepositorio(Long repositorioId) {
-        return contribucionRepository.findAll().stream()
-                .filter(c -> c.getRepositorio() != null && c.getRepositorio().getId().equals(repositorioId))
-                .collect(Collectors.toList());
+        return contribucionRepository.findByRepositorioId(repositorioId);
     }
 
     @Override
     public List<Contribucion> listarPorUsuario(Long usuarioId) {
-        return contribucionRepository.findAll().stream()
-                .filter(c -> c.getUsuario() != null && c.getUsuario().getId().equals(usuarioId))
-                .collect(Collectors.toList());
+        return contribucionRepository.findByUsuarioId(usuarioId);
     }
 
     @Override
     public Optional<Contribucion> obtenerPorRepositorioYUsuario(Long repositorioId, Long usuarioId) {
-        return contribucionRepository.findAll().stream()
-                .filter(c -> c.getRepositorio() != null && c.getRepositorio().getId().equals(repositorioId)
-                        && c.getUsuario() != null && c.getUsuario().getId().equals(usuarioId))
-                .findFirst();
+        return contribucionRepository.findByRepositorioIdAndUsuarioId(repositorioId, usuarioId);
     }
 
     @Override

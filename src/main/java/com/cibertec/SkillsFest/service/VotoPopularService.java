@@ -13,3 +13,4 @@ public interface VotoPopularService {
     boolean yaVotoUsuario(Long proyectoId, Long usuarioId);
     void eliminar(Long id);
 }
+

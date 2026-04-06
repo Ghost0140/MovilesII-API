@@ -3,6 +3,8 @@ package com.cibertec.SkillsFest.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Getter
 @Setter
@@ -22,8 +24,8 @@ public class CriterioEvaluacion {
     @Column(nullable = false)
     private String nombre;
 
-    @Column(nullable = false)
-    private Double peso;
+    @Column(nullable = false, precision = 5, scale = 2)
+    private BigDecimal peso;
 
     @Column(name = "puntaje_maximo", nullable = false)
     private Integer puntajeMaximo;

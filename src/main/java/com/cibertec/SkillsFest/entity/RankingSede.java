@@ -1,9 +1,9 @@
 package com.cibertec.SkillsFest.entity;
 
-
-
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.math.BigDecimal;
 
 @Entity
 @Getter
@@ -28,8 +28,8 @@ public class RankingSede {
 
     private Integer posicion;
 
-    @Column(name = "puntos_totales")
-    private Double puntosTotales;
+    @Column(name = "puntos_totales", precision = 10, scale = 2)
+    private BigDecimal puntosTotales;
 
     @Column(name = "proyectos_presentados")
     private Integer proyectosPresentados;
