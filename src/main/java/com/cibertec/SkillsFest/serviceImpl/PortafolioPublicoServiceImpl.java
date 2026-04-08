@@ -7,6 +7,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -15,6 +16,14 @@ import java.util.Optional;
 public class PortafolioPublicoServiceImpl implements IPortafolioPublicoService {
 
     private final IPortafolioPublicoRepository portfolioRepository;
+
+    @Override
+    public List<PortafolioPublico> obtenerTodos() {
+        return portfolioRepository.findAll()
+                .stream()
+                .filter(PortafolioPublico::getActivo)
+                .toList();
+    }
 
     @Override
     public Optional<PortafolioPublico> obtenerPorId(Long id) {
@@ -34,9 +43,8 @@ public class PortafolioPublicoServiceImpl implements IPortafolioPublicoService {
 
     @Override
     public PortafolioPublico crear(PortafolioPublico portfolio) {
-        if (portfolio.getActivo() == null) {
-            portfolio.setActivo(true);
-        }
+        if (portfolio.getActivo() == null) portfolio.setActivo(true);
+        if (portfolio.getVisible() == null) portfolio.setVisible(true);
         return portfolioRepository.save(portfolio);
     }
 
@@ -49,6 +57,17 @@ public class PortafolioPublicoServiceImpl implements IPortafolioPublicoService {
         if (portfolioActualizado.getBio() != null) portfolio.setBio(portfolioActualizado.getBio());
         if (portfolioActualizado.getVisible() != null) portfolio.setVisible(portfolioActualizado.getVisible());
         if (portfolioActualizado.getSlug() != null) portfolio.setSlug(portfolioActualizado.getSlug());
+
+        return portfolioRepository.save(portfolio);
+    }
+
+    @Override
+    public PortafolioPublico cambiarEstado(Long id, Boolean activo, Boolean visible) {
+        PortafolioPublico portfolio = portfolioRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Portafolio no encontrado"));
+
+        portfolio.setActivo(activo);
+        portfolio.setVisible(visible);
 
         return portfolioRepository.save(portfolio);
     }

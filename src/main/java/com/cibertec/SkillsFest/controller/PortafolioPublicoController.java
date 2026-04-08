@@ -1,14 +1,18 @@
 package com.cibertec.SkillsFest.controller;
 
+import com.cibertec.SkillsFest.dto.ApiMapper;
+import com.cibertec.SkillsFest.dto.PortafolioEstadoRequest;
+import com.cibertec.SkillsFest.dto.PortafolioResponse;
 import com.cibertec.SkillsFest.entity.PortafolioPublico;
+import com.cibertec.SkillsFest.exception.ResourceNotFoundException;
 import com.cibertec.SkillsFest.service.IPortafolioPublicoService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/portafolios")
@@ -18,58 +22,59 @@ public class PortafolioPublicoController {
 
     private final IPortafolioPublicoService portafolioService;
 
+    @GetMapping
+    public ResponseEntity<?> obtenerTodos() {
+        List<PortafolioResponse> data = portafolioService.obtenerTodos()
+                .stream()
+                .map(ApiMapper::toPortafolioResponse)
+                .toList();
+
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Portafolios obtenidos correctamente",
+                "data", data
+        ));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<?> obtenerPorId(@PathVariable Long id) {
-        Optional<PortafolioPublico> portfolio = portafolioService.obtenerPorId(id);
-
-        if (portfolio.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Portafolio no encontrado"));
-        }
+        PortafolioPublico portfolio = portafolioService.obtenerPorId(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Portafolio no encontrado"));
 
         return ResponseEntity.ok(Map.of(
                 "mensaje", "Portafolio obtenido",
-                "data", portfolio.get()
+                "data", ApiMapper.toPortafolioResponse(portfolio)
         ));
     }
 
     @GetMapping("/usuario/{usuarioId}")
     public ResponseEntity<?> obtenerPorUsuario(@PathVariable Long usuarioId) {
-        Optional<PortafolioPublico> portfolio = portafolioService.obtenerPorUsuario(usuarioId);
-
-        if (portfolio.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Portafolio no encontrado"));
-        }
+        PortafolioPublico portfolio = portafolioService.obtenerPorUsuario(usuarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Portafolio no encontrado"));
 
         return ResponseEntity.ok(Map.of(
                 "mensaje", "Portafolio obtenido",
-                "data", portfolio.get()
+                "data", ApiMapper.toPortafolioResponse(portfolio)
         ));
     }
 
     @GetMapping("/slug/{slug}")
     public ResponseEntity<?> obtenerPorSlug(@PathVariable String slug) {
-        Optional<PortafolioPublico> portfolio = portafolioService.obtenerPorSlug(slug);
-
-        if (portfolio.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Portafolio no encontrado"));
-        }
+        PortafolioPublico portfolio = portafolioService.obtenerPorSlug(slug)
+                .orElseThrow(() -> new ResourceNotFoundException("Portafolio no encontrado"));
 
         return ResponseEntity.ok(Map.of(
                 "mensaje", "Portafolio obtenido",
-                "data", portfolio.get()
+                "data", ApiMapper.toPortafolioResponse(portfolio)
         ));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody PortafolioPublico request) {
-        PortafolioPublico actualizado = portafolioService.actualizar(id, request);
+    @PatchMapping("/{id}/estado")
+    public ResponseEntity<?> cambiarEstado(@PathVariable Long id, @Valid @RequestBody PortafolioEstadoRequest request) {
+        PortafolioPublico actualizado = portafolioService.cambiarEstado(id, request.activo(), request.visible());
 
         return ResponseEntity.ok(Map.of(
-                "mensaje", "Portafolio actualizado correctamente",
-                "data", actualizado
+                "mensaje", "Estado del portafolio actualizado",
+                "data", ApiMapper.toPortafolioResponse(actualizado)
         ));
     }
 

@@ -1,13 +1,18 @@
 package com.cibertec.SkillsFest.controller;
 
+import com.cibertec.SkillsFest.dto.ApiMapper;
+import com.cibertec.SkillsFest.dto.EquipoEstadoRequest;
+import com.cibertec.SkillsFest.dto.EquipoInscripcionRequest;
+import com.cibertec.SkillsFest.dto.EquipoResponse;
 import com.cibertec.SkillsFest.entity.Equipo;
+import com.cibertec.SkillsFest.exception.ResourceNotFoundException;
 import com.cibertec.SkillsFest.service.IEquipoService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -19,68 +24,77 @@ public class EquipoController {
 
     private final IEquipoService equipoService;
 
-    public record InscripcionEquipoRequest(
-            Long eventoId,
-            Long liderId,
-            List<Long> miembrosIds,
-            Long asesorId,
-            String nombreEquipo
-    ) {}
+    @GetMapping
+    public ResponseEntity<?> listarTodos() {
+        List<EquipoResponse> data = equipoService.obtenerTodos()
+                .stream()
+                .map(ApiMapper::toEquipoResponse)
+                .toList();
+
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Equipos obtenidos correctamente",
+                "data", data
+        ));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> obtenerPorId(@PathVariable Long id) {
+        Equipo equipo = equipoService.obtenerPorId(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Equipo no encontrado"));
+
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Equipo obtenido correctamente",
+                "data", ApiMapper.toEquipoResponse(equipo)
+        ));
+    }
 
     @PostMapping("/inscribir")
-    public ResponseEntity<?> inscribirEquipo(@RequestBody InscripcionEquipoRequest request) {
-        Map<String, Object> response = new HashMap<>();
+    public ResponseEntity<?> inscribirEquipo(@Valid @RequestBody EquipoInscripcionRequest request) {
+        Equipo nuevoEquipo = equipoService.inscribirEquipo(
+                request.eventoId(),
+                request.liderId(),
+                request.miembrosIds(),
+                request.asesorId(),
+                request.nombreEquipo()
+        );
 
-        try {
-            Equipo nuevoEquipo = equipoService.inscribirEquipo(
-                    request.eventoId(),
-                    request.liderId(),
-                    request.miembrosIds(),
-                    request.asesorId(),
-                    request.nombreEquipo()
-            );
-
-            response.put("mensaje", "El equipo ha sido inscrito exitosamente y está pendiente de aprobación.");
-            response.put("equipo", nuevoEquipo);
-            return new ResponseEntity<>(response, HttpStatus.CREATED);
-
-        } catch (RuntimeException e) {
-            response.put("error", "Error en la inscripción");
-            response.put("detalle", e.getMessage());
-            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-        }
+        return new ResponseEntity<>(Map.of(
+                "mensaje", "El equipo ha sido inscrito exitosamente y está pendiente de aprobación.",
+                "data", ApiMapper.toEquipoResponse(nuevoEquipo)
+        ), HttpStatus.CREATED);
     }
 
     @GetMapping("/evento/{eventoId}")
     public ResponseEntity<?> listarEquiposDeEvento(@PathVariable Long eventoId) {
-        List<Equipo> equipos = equipoService.obtenerEquiposPorEvento(eventoId);
+        List<EquipoResponse> data = equipoService.obtenerEquiposPorEvento(eventoId)
+                .stream()
+                .map(ApiMapper::toEquipoResponse)
+                .toList();
 
-        if (equipos.isEmpty()) {
-            return new ResponseEntity<>(Map.of("mensaje", "Aún no hay equipos inscritos en este evento."), HttpStatus.OK);
-        }
-
-        return new ResponseEntity<>(equipos, HttpStatus.OK);
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Equipos del evento obtenidos correctamente",
+                "data", data
+        ));
     }
 
     @PutMapping("/{equipoId}/aprobar")
-    public ResponseEntity<?> aprobarEquipo(
-            @PathVariable Long equipoId,
-            @RequestParam Long organizadorId) {
+    public ResponseEntity<?> aprobarEquipo(@PathVariable Long equipoId, @RequestParam Long organizadorId) {
+        Equipo equipoAprobado = equipoService.aprobarEquipo(equipoId, organizadorId);
 
-        Map<String, Object> response = new HashMap<>();
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "El equipo ha sido aprobado con éxito.",
+                "data", ApiMapper.toEquipoResponse(equipoAprobado)
+        ));
+    }
 
-        try {
-            Equipo equipoAprobado = equipoService.aprobarEquipo(equipoId, organizadorId);
+    @PatchMapping("/{equipoId}/estado")
+    public ResponseEntity<?> cambiarEstado(@PathVariable Long equipoId, @Valid @RequestBody EquipoEstadoRequest request) {
+        Equipo equipo = equipoService.cambiarEstado(equipoId, request.estado());
 
-            response.put("mensaje", "El equipo '" + equipoAprobado.getNombre() + "' ha sido aprobado con éxito.");
-            response.put("equipo", equipoAprobado);
-            return new ResponseEntity<>(response, HttpStatus.OK);
-
-        } catch (RuntimeException e) {
-            response.put("error", "No se pudo aprobar el equipo");
-            response.put("detalle", e.getMessage());
-            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-        }
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Estado del equipo actualizado",
+                "data", ApiMapper.toEquipoResponse(equipo)
+        ));
     }
 
     @DeleteMapping("/{equipoId}")
@@ -89,7 +103,7 @@ public class EquipoController {
 
         return ResponseEntity.ok(Map.of(
                 "mensaje", "Equipo eliminado lógicamente",
-                "equipo", equipo
+                "data", ApiMapper.toEquipoResponse(equipo)
         ));
     }
 }

@@ -1,7 +1,12 @@
 package com.cibertec.SkillsFest.controller;
 
+import com.cibertec.SkillsFest.dto.ApiMapper;
+import com.cibertec.SkillsFest.dto.EvaluacionCreateRequest;
+import com.cibertec.SkillsFest.dto.EvaluacionResponse;
 import com.cibertec.SkillsFest.entity.Evaluacion;
+import com.cibertec.SkillsFest.exception.ResourceNotFoundException;
 import com.cibertec.SkillsFest.service.IEvaluacionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -10,11 +15,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/evaluaciones")
@@ -24,19 +26,6 @@ public class EvaluacionController {
 
     private final IEvaluacionService evaluacionService;
 
-    public record CrearEvaluacionRequest(
-            Long proyectoId,
-            Long juradoId,
-            Long criterioId,
-            BigDecimal puntaje,
-            String comentario
-    ) {}
-
-    public record ActualizarEvaluacionRequest(
-            BigDecimal puntaje,
-            String comentario
-    ) {}
-
     @GetMapping
     public ResponseEntity<?> obtenerTodas(
             @RequestParam(defaultValue = "0") int page,
@@ -45,97 +34,73 @@ public class EvaluacionController {
         Pageable pageable = PageRequest.of(page, size);
         Page<Evaluacion> evaluaciones = evaluacionService.obtenerTodosPaginado(pageable);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("mensaje", "Evaluaciones obtenidas exitosamente");
-        response.put("data", evaluaciones.getContent());
-        response.put("paginaActual", evaluaciones.getNumber());
-        response.put("totalPaginas", evaluaciones.getTotalPages());
-        response.put("totalElementos", evaluaciones.getTotalElements());
+        List<EvaluacionResponse> data = evaluaciones.getContent()
+                .stream()
+                .map(ApiMapper::toEvaluacionResponse)
+                .toList();
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Evaluaciones obtenidas exitosamente",
+                "data", data,
+                "paginaActual", evaluaciones.getNumber(),
+                "totalPaginas", evaluaciones.getTotalPages(),
+                "totalElementos", evaluaciones.getTotalElements()
+        ));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<?> obtenerPorId(@PathVariable Long id) {
-        Optional<Evaluacion> evaluacion = evaluacionService.obtenerPorId(id);
-
-        if (evaluacion.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Evaluación no encontrada"));
-        }
+        Evaluacion evaluacion = evaluacionService.obtenerPorId(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Evaluación no encontrada"));
 
         return ResponseEntity.ok(Map.of(
                 "mensaje", "Evaluación obtenida",
-                "data", evaluacion.get()
+                "data", ApiMapper.toEvaluacionResponse(evaluacion)
         ));
     }
 
     @GetMapping("/proyecto/{proyectoId}")
     public ResponseEntity<?> obtenerPorProyecto(@PathVariable Long proyectoId) {
-        List<Evaluacion> evaluaciones = evaluacionService.obtenerPorProyecto(proyectoId);
+        List<EvaluacionResponse> data = evaluacionService.obtenerPorProyecto(proyectoId)
+                .stream()
+                .map(ApiMapper::toEvaluacionResponse)
+                .toList();
 
         return ResponseEntity.ok(Map.of(
                 "mensaje", "Evaluaciones del proyecto obtenidas",
-                "data", evaluaciones,
-                "cantidad", evaluaciones.size()
+                "data", data,
+                "cantidad", data.size()
         ));
     }
 
     @GetMapping("/jurado/{juradoId}")
     public ResponseEntity<?> obtenerPorJurado(@PathVariable Long juradoId) {
-        List<Evaluacion> evaluaciones = evaluacionService.obtenerPorJurado(juradoId);
+        List<EvaluacionResponse> data = evaluacionService.obtenerPorJurado(juradoId)
+                .stream()
+                .map(ApiMapper::toEvaluacionResponse)
+                .toList();
 
         return ResponseEntity.ok(Map.of(
                 "mensaje", "Evaluaciones del jurado obtenidas",
-                "data", evaluaciones,
-                "cantidad", evaluaciones.size()
+                "data", data,
+                "cantidad", data.size()
         ));
     }
 
     @PostMapping
-    public ResponseEntity<?> crear(@RequestBody CrearEvaluacionRequest request) {
-        Map<String, Object> response = new HashMap<>();
+    public ResponseEntity<?> crear(@Valid @RequestBody EvaluacionCreateRequest request) {
+        Evaluacion evaluacionGuardada = evaluacionService.crear(
+                request.proyectoId(),
+                request.juradoId(),
+                request.criterioId(),
+                request.puntaje(),
+                request.comentario()
+        );
 
-        try {
-            Evaluacion evaluacionGuardada = evaluacionService.crear(
-                    request.proyectoId(),
-                    request.juradoId(),
-                    request.criterioId(),
-                    request.puntaje(),
-                    request.comentario()
-            );
-
-            response.put("mensaje", "Evaluación creada exitosamente");
-            response.put("data", evaluacionGuardada);
-
-            return new ResponseEntity<>(response, HttpStatus.CREATED);
-        } catch (RuntimeException e) {
-            response.put("error", "Error al crear evaluación");
-            response.put("detalle", e.getMessage());
-            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-        }
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody ActualizarEvaluacionRequest request) {
-        Map<String, Object> response = new HashMap<>();
-
-        try {
-            Evaluacion evaluacionActualizada = new Evaluacion();
-            evaluacionActualizada.setPuntaje(request.puntaje());
-            evaluacionActualizada.setComentario(request.comentario());
-
-            Evaluacion evaluacion = evaluacionService.actualizar(id, evaluacionActualizada);
-
-            response.put("mensaje", "Evaluación actualizada exitosamente");
-            response.put("data", evaluacion);
-
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            response.put("error", "Error al actualizar evaluación");
-            response.put("detalle", e.getMessage());
-            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-        }
+        return new ResponseEntity<>(Map.of(
+                "mensaje", "Evaluación creada exitosamente",
+                "data", ApiMapper.toEvaluacionResponse(evaluacionGuardada)
+        ), HttpStatus.CREATED);
     }
 
     @DeleteMapping("/{id}")

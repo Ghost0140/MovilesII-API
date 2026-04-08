@@ -1,60 +1,72 @@
 package com.cibertec.SkillsFest.controller;
 
+import com.cibertec.SkillsFest.dto.ApiMapper;
+import com.cibertec.SkillsFest.dto.ContribucionResponse;
 import com.cibertec.SkillsFest.entity.Contribucion;
+import com.cibertec.SkillsFest.exception.ResourceNotFoundException;
 import com.cibertec.SkillsFest.service.ContribucionService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/contribuciones")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class ContribucionController {
 
     private final ContribucionService contribucionService;
 
-    @PostMapping
-    public ResponseEntity<Contribucion> crear(@RequestBody Contribucion contribucion) {
-        Contribucion nueva = contribucionService.guardar(contribucion);
-        return new ResponseEntity<>(nueva, HttpStatus.CREATED);
+    @GetMapping
+    public ResponseEntity<?> listarTodos() {
+        List<ContribucionResponse> data = contribucionService.listarTodos()
+                .stream()
+                .map(ApiMapper::toContribucionResponse)
+                .toList();
+
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Contribuciones obtenidas correctamente",
+                "data", data
+        ));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Contribucion> obtenerPorId(@PathVariable Long id) {
-        return contribucionService.obtenerPorId(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
+    public ResponseEntity<?> obtenerPorId(@PathVariable Long id) {
+        Contribucion contribucion = contribucionService.obtenerPorId(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Contribución no encontrada"));
 
-    @GetMapping
-    public ResponseEntity<List<Contribucion>> listarTodos() {
-        return ResponseEntity.ok(contribucionService.listarTodos());
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Contribución obtenida",
+                "data", ApiMapper.toContribucionResponse(contribucion)
+        ));
     }
 
     @GetMapping("/repositorio/{repositorioId}")
-    public ResponseEntity<List<Contribucion>> listarPorRepositorio(@PathVariable Long repositorioId) {
-        return ResponseEntity.ok(contribucionService.listarPorRepositorio(repositorioId));
+    public ResponseEntity<?> listarPorRepositorio(@PathVariable Long repositorioId) {
+        List<ContribucionResponse> data = contribucionService.listarPorRepositorio(repositorioId)
+                .stream()
+                .map(ApiMapper::toContribucionResponse)
+                .toList();
+
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Contribuciones del repositorio obtenidas",
+                "data", data
+        ));
     }
 
     @GetMapping("/usuario/{usuarioId}")
-    public ResponseEntity<List<Contribucion>> listarPorUsuario(@PathVariable Long usuarioId) {
-        return ResponseEntity.ok(contribucionService.listarPorUsuario(usuarioId));
-    }
+    public ResponseEntity<?> listarPorUsuario(@PathVariable Long usuarioId) {
+        List<ContribucionResponse> data = contribucionService.listarPorUsuario(usuarioId)
+                .stream()
+                .map(ApiMapper::toContribucionResponse)
+                .toList();
 
-    @GetMapping("/repositorio/{repositorioId}/usuario/{usuarioId}")
-    public ResponseEntity<Contribucion> obtenerPorRepoYUsuario(@PathVariable Long repositorioId,
-                                                               @PathVariable Long usuarioId) {
-        return contribucionService.obtenerPorRepositorioYUsuario(repositorioId, usuarioId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
-        contribucionService.eliminar(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Contribuciones del usuario obtenidas",
+                "data", data
+        ));
     }
 }

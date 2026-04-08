@@ -13,7 +13,6 @@ public interface IEvaluacionService {
     Page<Evaluacion> obtenerTodosPaginado(Pageable pageable);
     Optional<Evaluacion> obtenerPorId(Long id);
     Evaluacion crear(Long proyectoId, Long juradoId, Long criterioId, BigDecimal puntaje, String comentario);
-    Evaluacion actualizar(Long id, Evaluacion evaluacion);
     void eliminar(Long id);
     List<Evaluacion> obtenerPorProyecto(Long proyectoId);
     List<Evaluacion> obtenerPorJurado(Long juradoId);

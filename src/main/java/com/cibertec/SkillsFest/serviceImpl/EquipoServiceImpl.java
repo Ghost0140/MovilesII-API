@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +24,20 @@ public class EquipoServiceImpl implements IEquipoService {
     private final IEventoRepository eventoRepository;
     private final IUsuarioRepository usuarioRepository;
     private final ObjectMapper objectMapper;
+
+    @Override
+    public List<Equipo> obtenerTodos() {
+        return equipoRepository.findAll()
+                .stream()
+                .filter(e -> !"ELIMINADO".equals(e.getEstado()))
+                .toList();
+    }
+
+    @Override
+    public Optional<Equipo> obtenerPorId(Long id) {
+        return equipoRepository.findById(id)
+                .filter(e -> !"ELIMINADO".equals(e.getEstado()));
+    }
 
     @Override
     @Transactional
@@ -89,6 +104,16 @@ public class EquipoServiceImpl implements IEquipoService {
                 .orElseThrow(() -> new RuntimeException("Organizador no encontrado"));
 
         equipo.setEstado("APROBADO");
+        return equipoRepository.save(equipo);
+    }
+
+    @Override
+    @Transactional
+    public Equipo cambiarEstado(Long equipoId, String estado) {
+        Equipo equipo = equipoRepository.findById(equipoId)
+                .orElseThrow(() -> new RuntimeException("Equipo no encontrado"));
+
+        equipo.setEstado(estado);
         return equipoRepository.save(equipo);
     }
 

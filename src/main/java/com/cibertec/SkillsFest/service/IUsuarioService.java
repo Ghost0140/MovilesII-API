@@ -9,11 +9,12 @@ import java.util.Optional;
 
 public interface IUsuarioService {
     List<Usuario> obtenerTodos();
-    Page<Usuario> obtenerTodosPaginado(Pageable pageable);
+    Page<Usuario> obtenerTodosPaginado(Boolean activo, Pageable pageable);
     Optional<Usuario> obtenerPorId(Long id);
     Optional<Usuario> obtenerPorEmail(String email);
     Usuario crear(Usuario usuario, Long sedeId);
     Usuario actualizar(Long id, Usuario usuario);
+    Usuario cambiarActivo(Long id, Boolean activo);
     void eliminar(Long id);
     List<Usuario> obtenerPorSede(Long sedeId);
 }

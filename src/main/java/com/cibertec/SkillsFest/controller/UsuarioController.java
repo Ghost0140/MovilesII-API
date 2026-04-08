@@ -1,7 +1,16 @@
 package com.cibertec.SkillsFest.controller;
 
+import com.cibertec.SkillsFest.dto.ApiMapper;
+import com.cibertec.SkillsFest.dto.UsuarioCreateRequest;
+import com.cibertec.SkillsFest.dto.UsuarioEstadoRequest;
+import com.cibertec.SkillsFest.dto.UsuarioResponse;
+import com.cibertec.SkillsFest.dto.UsuarioUpdateRequest;
+import com.cibertec.SkillsFest.entity.Sede;
 import com.cibertec.SkillsFest.entity.Usuario;
+import com.cibertec.SkillsFest.exception.ResourceNotFoundException;
+import com.cibertec.SkillsFest.repository.ISedeRepository;
 import com.cibertec.SkillsFest.service.IUsuarioService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -10,9 +19,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/usuarios")
@@ -21,125 +29,97 @@ import java.util.Optional;
 public class UsuarioController {
 
     private final IUsuarioService usuarioService;
-
-    public record CrearUsuarioRequest(
-            String nombres,
-            String apellidos,
-            String email,
-            String password,
-            String numeroDocumento,
-            Long sedeId,
-            String carrera,
-            Integer ciclo,
-            String codigoEstudiante,
-            String githubUsername,
-            String roles
-    ) {}
-
-    public record ActualizarUsuarioRequest(
-            String nombres,
-            String apellidos,
-            String carrera,
-            Integer ciclo,
-            String roles,
-            String githubUsername
-    ) {}
+    private final ISedeRepository sedeRepository;
 
     @GetMapping
     public ResponseEntity<?> obtenerTodos(
+            @RequestParam(required = false) Boolean activo,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<Usuario> usuarios = usuarioService.obtenerTodosPaginado(pageable);
+        Page<Usuario> usuarios = usuarioService.obtenerTodosPaginado(activo, pageable);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("mensaje", "Usuarios obtenidos exitosamente");
-        response.put("data", usuarios.getContent());
-        response.put("paginaActual", usuarios.getNumber());
-        response.put("totalPaginas", usuarios.getTotalPages());
-        response.put("totalElementos", usuarios.getTotalElements());
+        List<UsuarioResponse> data = usuarios.getContent()
+                .stream()
+                .map(ApiMapper::toUsuarioResponse)
+                .toList();
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Usuarios obtenidos exitosamente",
+                "data", data,
+                "paginaActual", usuarios.getNumber(),
+                "totalPaginas", usuarios.getTotalPages(),
+                "totalElementos", usuarios.getTotalElements()
+        ));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<?> obtenerPorId(@PathVariable Long id) {
-        Optional<Usuario> usuario = usuarioService.obtenerPorId(id);
-
-        if (usuario.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Usuario no encontrado"));
-        }
+        Usuario usuario = usuarioService.obtenerPorId(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
         return ResponseEntity.ok(Map.of(
                 "mensaje", "Usuario obtenido",
-                "data", usuario.get()
+                "data", ApiMapper.toUsuarioResponse(usuario)
         ));
     }
 
     @PostMapping
-    public ResponseEntity<?> crear(@RequestBody CrearUsuarioRequest request) {
-        Map<String, Object> response = new HashMap<>();
+    public ResponseEntity<?> crear(@Valid @RequestBody UsuarioCreateRequest request) {
+        Usuario nuevoUsuario = new Usuario();
+        nuevoUsuario.setNombres(request.nombres());
+        nuevoUsuario.setApellidos(request.apellidos());
+        nuevoUsuario.setEmail(request.email());
+        nuevoUsuario.setPassword(request.password());
+        nuevoUsuario.setNumeroDocumento(request.numeroDocumento());
+        nuevoUsuario.setCarrera(request.carrera());
+        nuevoUsuario.setCiclo(request.ciclo());
+        nuevoUsuario.setCodigoEstudiante(request.codigoEstudiante());
+        nuevoUsuario.setGithubUsername(request.githubUsername());
 
-        try {
-            Usuario nuevoUsuario = new Usuario();
-            nuevoUsuario.setNombres(request.nombres());
-            nuevoUsuario.setApellidos(request.apellidos());
-            nuevoUsuario.setEmail(request.email());
-            nuevoUsuario.setPassword(request.password());
-            nuevoUsuario.setNumeroDocumento(request.numeroDocumento());
-            nuevoUsuario.setCarrera(request.carrera());
-            nuevoUsuario.setCiclo(request.ciclo());
-            nuevoUsuario.setCodigoEstudiante(request.codigoEstudiante());
-            nuevoUsuario.setGithubUsername(request.githubUsername());
-            nuevoUsuario.setRoles(request.roles() != null ? request.roles() : "ESTUDIANTE");
+        Usuario guardado = usuarioService.crear(nuevoUsuario, request.sedeId());
 
-            Usuario usuarioGuardado = usuarioService.crear(nuevoUsuario, request.sedeId());
-
-            response.put("mensaje", "Usuario creado exitosamente");
-            response.put("data", usuarioGuardado);
-
-            return new ResponseEntity<>(response, HttpStatus.CREATED);
-        } catch (RuntimeException e) {
-            response.put("error", "Error al crear usuario");
-            response.put("detalle", e.getMessage());
-            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-        }
+        return new ResponseEntity<>(Map.of(
+                "mensaje", "Usuario creado exitosamente",
+                "data", ApiMapper.toUsuarioResponse(guardado)
+        ), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> actualizar(
-            @PathVariable Long id,
-            @RequestBody ActualizarUsuarioRequest request) {
+    public ResponseEntity<?> actualizar(@PathVariable Long id, @Valid @RequestBody UsuarioUpdateRequest request) {
+        Usuario usuarioActualizado = new Usuario();
+        usuarioActualizado.setNombres(request.nombres());
+        usuarioActualizado.setApellidos(request.apellidos());
+        usuarioActualizado.setCarrera(request.carrera());
+        usuarioActualizado.setCiclo(request.ciclo());
+        usuarioActualizado.setGithubUsername(request.githubUsername());
 
-        Map<String, Object> response = new HashMap<>();
+        Sede sede = sedeRepository.findById(request.sedeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Sede no encontrada"));
+        usuarioActualizado.setSede(sede);
 
-        try {
-            Usuario usuarioActualizado = new Usuario();
-            usuarioActualizado.setNombres(request.nombres());
-            usuarioActualizado.setApellidos(request.apellidos());
-            usuarioActualizado.setCarrera(request.carrera());
-            usuarioActualizado.setCiclo(request.ciclo());
-            usuarioActualizado.setRoles(request.roles());
-            usuarioActualizado.setGithubUsername(request.githubUsername());
+        Usuario usuario = usuarioService.actualizar(id, usuarioActualizado);
 
-            Usuario usuario = usuarioService.actualizar(id, usuarioActualizado);
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Usuario actualizado exitosamente",
+                "data", ApiMapper.toUsuarioResponse(usuario)
+        ));
+    }
 
-            response.put("mensaje", "Usuario actualizado exitosamente");
-            response.put("data", usuario);
+    @PatchMapping("/{id}/activo")
+    public ResponseEntity<?> cambiarActivo(@PathVariable Long id, @Valid @RequestBody UsuarioEstadoRequest request) {
+        Usuario usuario = usuarioService.cambiarActivo(id, request.activo());
 
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            response.put("error", "Error al actualizar usuario");
-            response.put("detalle", e.getMessage());
-            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-        }
+        return ResponseEntity.ok(Map.of(
+                "mensaje", request.activo() ? "Usuario activado" : "Usuario desactivado",
+                "data", ApiMapper.toUsuarioResponse(usuario)
+        ));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminar(@PathVariable Long id) {
         usuarioService.eliminar(id);
-        return ResponseEntity.ok(Map.of("mensaje", "Usuario eliminado exitosamente"));
+        return ResponseEntity.ok(Map.of("mensaje", "Usuario desactivado exitosamente"));
     }
 }
