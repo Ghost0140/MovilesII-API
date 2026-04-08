@@ -11,7 +11,6 @@ import com.cibertec.SkillsFest.repository.IUsuarioRepository;
 import com.cibertec.SkillsFest.service.IEvaluacionService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,7 +20,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
-@Slf4j
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -59,10 +57,6 @@ public class EvaluacionServiceImpl implements IEvaluacionService {
         Usuario jurado = usuarioRepository.findById(juradoId)
                 .orElseThrow(() -> new RuntimeException("Jurado no encontrado"));
 
-        if (jurado.getRoles() == null || !jurado.getRoles().contains("JURADO")) {
-            throw new RuntimeException("El usuario indicado no tiene rol JURADO");
-        }
-
         CriterioEvaluacion criterio = criterioRepository.findById(criterioId)
                 .orElseThrow(() -> new RuntimeException("Criterio no encontrado"));
 
@@ -73,21 +67,6 @@ public class EvaluacionServiceImpl implements IEvaluacionService {
         evaluacion.setPuntaje(puntaje);
         evaluacion.setComentario(comentario);
         evaluacion.setEvaluadoEn(new Date());
-
-        return evaluacionRepository.save(evaluacion);
-    }
-
-    @Override
-    public Evaluacion actualizar(Long id, Evaluacion evaluacionActualizada) {
-        Evaluacion evaluacion = evaluacionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Evaluación no encontrada"));
-
-        if (evaluacionActualizada.getPuntaje() != null) {
-            evaluacion.setPuntaje(evaluacionActualizada.getPuntaje());
-        }
-        if (evaluacionActualizada.getComentario() != null) {
-            evaluacion.setComentario(evaluacionActualizada.getComentario());
-        }
 
         return evaluacionRepository.save(evaluacion);
     }

@@ -43,7 +43,7 @@ public class ProyectoServiceImpl implements IProyectoService {
 
     @Override
     public Page<Proyecto> obtenerTodosPaginado(Pageable pageable) {
-        return proyectoRepository.findByEstado("APROBADO", pageable);
+        return proyectoRepository.findAll(pageable);
     }
 
     @Override
@@ -93,11 +93,16 @@ public class ProyectoServiceImpl implements IProyectoService {
         if (proyectoActualizado.getTitulo() != null) proyecto.setTitulo(proyectoActualizado.getTitulo());
         if (proyectoActualizado.getResumen() != null) proyecto.setResumen(proyectoActualizado.getResumen());
         if (proyectoActualizado.getDescripcion() != null) proyecto.setDescripcion(proyectoActualizado.getDescripcion());
-        if (proyectoActualizado.getRepositorioUrl() != null) proyecto.setRepositorioUrl(proyectoActualizado.getRepositorioUrl());
-        if (proyectoActualizado.getVideoUrl() != null) proyecto.setVideoUrl(proyectoActualizado.getVideoUrl());
-        if (proyectoActualizado.getDemoUrl() != null) proyecto.setDemoUrl(proyectoActualizado.getDemoUrl());
-        if (proyectoActualizado.getTecnologias() != null) proyecto.setTecnologias(proyectoActualizado.getTecnologias());
 
+        return proyectoRepository.save(proyecto);
+    }
+
+    @Override
+    public Proyecto cambiarEstado(Long id, String estado) {
+        Proyecto proyecto = proyectoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Proyecto no encontrado"));
+
+        proyecto.setEstado(estado);
         return proyectoRepository.save(proyecto);
     }
 

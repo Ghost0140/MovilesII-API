@@ -24,30 +24,40 @@ public class UsuarioServiceImpl implements IUsuarioService {
 
     @Override
     public List<Usuario> obtenerTodos() {
-        return usuarioRepository.findByActivo(true);
+        return usuarioRepository.findAll();
     }
 
     @Override
-    public Page<Usuario> obtenerTodosPaginado(Pageable pageable) {
-        return usuarioRepository.findByActivo(true, pageable);
+    public Page<Usuario> obtenerTodosPaginado(Boolean activo, Pageable pageable) {
+        if (activo == null) {
+            return usuarioRepository.findAll(pageable);
+        }
+        return usuarioRepository.findByActivo(activo, pageable);
     }
 
     @Override
     public Optional<Usuario> obtenerPorId(Long id) {
-        return usuarioRepository.findById(id)
-                .filter(Usuario::getActivo);
+        return usuarioRepository.findById(id);
     }
 
     @Override
     public Optional<Usuario> obtenerPorEmail(String email) {
-        return usuarioRepository.findByEmail(email)
-                .filter(Usuario::getActivo);
+        return usuarioRepository.findByEmail(email);
     }
 
     @Override
     public Usuario crear(Usuario usuario, Long sedeId) {
         if (usuarioRepository.existsByEmail(usuario.getEmail())) {
             throw new RuntimeException("Ya existe un usuario con ese email");
+        }
+
+        if (usuario.getNumeroDocumento() != null && usuarioRepository.existsByNumeroDocumento(usuario.getNumeroDocumento())) {
+            throw new RuntimeException("Ya existe un usuario con ese documento");
+        }
+
+        if (usuario.getGithubUsername() != null && !usuario.getGithubUsername().isBlank()
+                && usuarioRepository.existsByGithubUsername(usuario.getGithubUsername())) {
+            throw new RuntimeException("Ya existe un usuario con ese githubUsername");
         }
 
         Sede sede = sedeRepository.findById(sedeId)
@@ -70,10 +80,27 @@ public class UsuarioServiceImpl implements IUsuarioService {
 
         if (usuarioActualizado.getNombres() != null) usuario.setNombres(usuarioActualizado.getNombres());
         if (usuarioActualizado.getApellidos() != null) usuario.setApellidos(usuarioActualizado.getApellidos());
+        if (usuarioActualizado.getSede() != null) usuario.setSede(usuarioActualizado.getSede());
         if (usuarioActualizado.getCarrera() != null) usuario.setCarrera(usuarioActualizado.getCarrera());
         if (usuarioActualizado.getCiclo() != null) usuario.setCiclo(usuarioActualizado.getCiclo());
-        if (usuarioActualizado.getGithubUsername() != null) usuario.setGithubUsername(usuarioActualizado.getGithubUsername());
 
+        if (usuarioActualizado.getGithubUsername() != null
+                && !usuarioActualizado.getGithubUsername().equals(usuario.getGithubUsername())) {
+            if (usuarioRepository.existsByGithubUsername(usuarioActualizado.getGithubUsername())) {
+                throw new RuntimeException("Ya existe un usuario con ese githubUsername");
+            }
+            usuario.setGithubUsername(usuarioActualizado.getGithubUsername());
+        }
+
+        return usuarioRepository.save(usuario);
+    }
+
+    @Override
+    public Usuario cambiarActivo(Long id, Boolean activo) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        usuario.setActivo(activo);
         return usuarioRepository.save(usuario);
     }
 

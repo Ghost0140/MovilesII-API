@@ -13,6 +13,7 @@ public interface IProyectoService {
     Optional<Proyecto> obtenerPorId(Long id);
     Proyecto crear(Proyecto proyecto, Long eventoId, Long equipoId, Long usuarioId);
     Proyecto actualizar(Long id, Proyecto proyecto);
+    Proyecto cambiarEstado(Long id, String estado);
     void eliminar(Long id);
     List<Proyecto> obtenerPorEvento(Long eventoId);
     List<Proyecto> obtenerPorEstado(String estado);

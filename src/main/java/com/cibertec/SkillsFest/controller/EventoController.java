@@ -1,14 +1,19 @@
 package com.cibertec.SkillsFest.controller;
 
+import com.cibertec.SkillsFest.dto.ApiMapper;
+import com.cibertec.SkillsFest.dto.EventoCreateRequest;
+import com.cibertec.SkillsFest.dto.EventoEstadoRequest;
+import com.cibertec.SkillsFest.dto.EventoResponse;
+import com.cibertec.SkillsFest.dto.EventoUpdateRequest;
 import com.cibertec.SkillsFest.entity.Evento;
+import com.cibertec.SkillsFest.exception.ResourceNotFoundException;
 import com.cibertec.SkillsFest.service.IEventoService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -20,62 +25,97 @@ public class EventoController {
 
     private final IEventoService eventoService;
 
-    @GetMapping("/publicados")
-    public ResponseEntity<?> listarEventosPublicados() {
-        List<Evento> eventos = eventoService.obtenerEventosPublicados();
+    @GetMapping
+    public ResponseEntity<?> listarTodos() {
+        List<EventoResponse> data = eventoService.obtenerTodos()
+                .stream()
+                .map(ApiMapper::toEventoResponse)
+                .toList();
 
-        if (eventos.isEmpty()) {
-            return new ResponseEntity<>(Map.of("mensaje", "No hay eventos en cartelera."), HttpStatus.OK);
-        }
-
-        return new ResponseEntity<>(eventos, HttpStatus.OK);
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Eventos obtenidos correctamente",
+                "data", data
+        ));
     }
 
-    public record CrearEventoRequest(
-            Long sedeOrganizadoraId,
-            String nombre,
-            String descripcion,
-            String tipo,
-            String alcance,
-            LocalDate fechaInicioInscripcion,
-            LocalDate fechaFinInscripcion,
-            LocalDate fechaEvento,
-            Integer maxMiembrosEquipo,
-            Long creadoPorId
-    ) {}
+    @GetMapping("/{id}")
+    public ResponseEntity<?> obtenerPorId(@PathVariable Long id) {
+        Evento evento = eventoService.obtenerPorId(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Evento no encontrado"));
+
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Evento obtenido",
+                "data", ApiMapper.toEventoResponse(evento)
+        ));
+    }
+
+    @GetMapping("/publicados")
+    public ResponseEntity<?> listarEventosPublicados() {
+        List<EventoResponse> data = eventoService.obtenerEventosPublicados()
+                .stream()
+                .map(ApiMapper::toEventoResponse)
+                .toList();
+
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Eventos publicados obtenidos correctamente",
+                "data", data
+        ));
+    }
 
     @PostMapping
-    public ResponseEntity<?> crearEvento(@RequestBody CrearEventoRequest request) {
-        Map<String, Object> response = new HashMap<>();
+    public ResponseEntity<?> crearEvento(@Valid @RequestBody EventoCreateRequest request) {
+        Evento nuevoEvento = new Evento();
+        nuevoEvento.setNombre(request.nombre());
+        nuevoEvento.setDescripcion(request.descripcion());
+        nuevoEvento.setTipo(request.tipo());
+        nuevoEvento.setAlcance(request.alcance());
+        nuevoEvento.setFechaInicioInscripcion(request.fechaInicioInscripcion());
+        nuevoEvento.setFechaFinInscripcion(request.fechaFinInscripcion());
+        nuevoEvento.setFechaEvento(request.fechaEvento());
+        nuevoEvento.setMaxMiembrosEquipo(request.maxMiembrosEquipo());
+        nuevoEvento.setPermiteEquipos(true);
+        nuevoEvento.setPermiteVotacionPopular(false);
 
-        try {
-            Evento nuevoEvento = new Evento();
-            nuevoEvento.setNombre(request.nombre());
-            nuevoEvento.setDescripcion(request.descripcion());
-            nuevoEvento.setTipo(request.tipo());
-            nuevoEvento.setAlcance(request.alcance() != null ? request.alcance() : "TODAS_SEDES");
-            nuevoEvento.setFechaInicioInscripcion(request.fechaInicioInscripcion());
-            nuevoEvento.setFechaFinInscripcion(request.fechaFinInscripcion());
-            nuevoEvento.setFechaEvento(request.fechaEvento());
-            nuevoEvento.setMaxMiembrosEquipo(request.maxMiembrosEquipo());
-            nuevoEvento.setPermiteEquipos(true);
-            nuevoEvento.setPermiteVotacionPopular(false);
+        Evento eventoCreado = eventoService.crearEvento(
+                nuevoEvento,
+                request.creadoPorId(),
+                request.sedeOrganizadoraId()
+        );
 
-            Evento eventoCreado = eventoService.crearEvento(
-                    nuevoEvento,
-                    request.creadoPorId(),
-                    request.sedeOrganizadoraId()
-            );
+        return new ResponseEntity<>(Map.of(
+                "mensaje", "Evento creado con éxito",
+                "data", ApiMapper.toEventoResponse(eventoCreado)
+        ), HttpStatus.CREATED);
+    }
 
-            response.put("mensaje", "Evento creado con éxito. Está en estado BORRADOR.");
-            response.put("evento", eventoCreado);
-            return new ResponseEntity<>(response, HttpStatus.CREATED);
+    @PutMapping("/{id}")
+    public ResponseEntity<?> actualizar(@PathVariable Long id, @Valid @RequestBody EventoUpdateRequest request) {
+        Evento eventoActualizado = new Evento();
+        eventoActualizado.setNombre(request.nombre());
+        eventoActualizado.setDescripcion(request.descripcion());
+        eventoActualizado.setTipo(request.tipo());
+        eventoActualizado.setAlcance(request.alcance());
+        eventoActualizado.setFechaInicioInscripcion(request.fechaInicioInscripcion());
+        eventoActualizado.setFechaFinInscripcion(request.fechaFinInscripcion());
+        eventoActualizado.setFechaEvento(request.fechaEvento());
+        eventoActualizado.setMaxMiembrosEquipo(request.maxMiembrosEquipo());
 
-        } catch (RuntimeException e) {
-            response.put("error", "Error al crear el evento");
-            response.put("detalle", e.getMessage());
-            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-        }
+        Evento evento = eventoService.actualizarEvento(id, eventoActualizado);
+
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Evento actualizado con éxito",
+                "data", ApiMapper.toEventoResponse(evento)
+        ));
+    }
+
+    @PatchMapping("/{id}/estado")
+    public ResponseEntity<?> cambiarEstado(@PathVariable Long id, @Valid @RequestBody EventoEstadoRequest request) {
+        Evento evento = eventoService.cambiarEstado(id, request.estado());
+
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Estado del evento actualizado",
+                "data", ApiMapper.toEventoResponse(evento)
+        ));
     }
 
     @DeleteMapping("/{id}")
@@ -84,7 +124,7 @@ public class EventoController {
 
         return ResponseEntity.ok(Map.of(
                 "mensaje", "Evento eliminado lógicamente",
-                "evento", evento
+                "data", ApiMapper.toEventoResponse(evento)
         ));
     }
 }
