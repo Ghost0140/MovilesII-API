@@ -10,4 +10,5 @@ public class SkillsFestApplication {
 		SpringApplication.run(SkillsFestApplication.class, args);
 	}
 
+
 }

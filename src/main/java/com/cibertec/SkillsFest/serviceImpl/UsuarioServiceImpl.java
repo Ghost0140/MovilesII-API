@@ -9,6 +9,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,6 +22,7 @@ public class UsuarioServiceImpl implements IUsuarioService {
 
     private final IUsuarioRepository usuarioRepository;
     private final ISedeRepository sedeRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public List<Usuario> obtenerTodos() {
@@ -58,6 +60,10 @@ public class UsuarioServiceImpl implements IUsuarioService {
         if (usuario.getGithubUsername() != null && !usuario.getGithubUsername().isBlank()
                 && usuarioRepository.existsByGithubUsername(usuario.getGithubUsername())) {
             throw new RuntimeException("Ya existe un usuario con ese githubUsername");
+        }
+        
+        if (usuario.getPassword() != null) {
+            usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
         }
 
         Sede sede = sedeRepository.findById(sedeId)
