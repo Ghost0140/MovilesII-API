@@ -27,6 +27,7 @@ public class PortafolioPublico {
 
     private String slug;
     private String titulo;
+    @Column(columnDefinition = "TEXT")
     private String bio;
 
     private Integer totalEventos;
