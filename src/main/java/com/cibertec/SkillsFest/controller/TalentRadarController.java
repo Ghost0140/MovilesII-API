@@ -1,35 +1,24 @@
 package com.cibertec.SkillsFest.controller;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
+import com.cibertec.SkillsFest.dto.radar.RadarAnalysisResponse;
+import com.cibertec.SkillsFest.entity.Contribucion;
 import com.cibertec.SkillsFest.entity.RankingArea;
+import com.cibertec.SkillsFest.entity.Repositorio;
+import com.cibertec.SkillsFest.repository.IContribucionRepository;
+import com.cibertec.SkillsFest.repository.IRepositorioRepository;
 import com.cibertec.SkillsFest.serviceImpl.TalentRadarServiceImpl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Controller para TalentRadar
- * CRÍTICO: Endpoints para análisis de repositorios GitHub
- *
- * Funcionalidad:
- * 1. POST /analizar-proyecto/{id} → Obtiene datos de GitHub y calcula scores
- * 2. POST /generar-rankings/{eventoId} → Genera rankings por especialidad
- * 3. POST /actualizar-portfolio/{usuarioId} → Actualiza portafolio con datos radar
- * 4. GET /rankings/{eventoId}/{area} → Obtiene ranking de una área
- */
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/radar")
@@ -38,53 +27,52 @@ import lombok.extern.slf4j.Slf4j;
 public class TalentRadarController {
 
     private final TalentRadarServiceImpl talentRadarService;
+    private final IRepositorioRepository repositorioRepository;
+    private final IContribucionRepository contribucionRepository;
 
     /**
-     * ENDPOINT CRÍTICO: Analiza un proyecto y extrae datos de GitHub
+     * Analiza un proyecto con Talent Radar.
      *
-     * POST /api/radar/analizar-proyecto/123
-     *
-     * Pasos:
-     * 1. Obtiene la URL del repositorio del proyecto
-     * 2. Llama a GitHub API para obtener commits y lenguajes
-     * 3. Analiza cada contribuidor
-     * 4. Calcula scores por área (Frontend, Backend, BD, Mobile, Testing)
-     * 5. Guarda en BD: Repositorio, Contribuciones, Scores
+     * POST /api/radar/analizar-proyecto/{proyectoId}
      */
     @PostMapping("/analizar-proyecto/{proyectoId}")
     public ResponseEntity<?> analizarProyecto(@PathVariable Long proyectoId) {
-        Map<String, Object> response = new HashMap<>();
-
         try {
             log.info("========== INICIANDO ANÁLISIS DE TALENT RADAR ==========");
             log.info("Proyecto ID: {}", proyectoId);
 
-            talentRadarService.analizarProyecto(proyectoId);
+            RadarAnalysisResponse response = talentRadarService.analizarProyecto(proyectoId);
 
-            response.put("mensaje", "Análisis de Talent Radar completado exitosamente");
-            response.put("estado", "COMPLETADO");
-            response.put("proyectoId", proyectoId);
+            log.info("========== ANÁLISIS FINALIZADO ==========");
+            log.info("Estado: {}", response.getEstado());
 
-            log.info("========== ANÁLISIS COMPLETADO ==========");
+            if ("COMPLETADO".equalsIgnoreCase(response.getEstado())) {
+                return ResponseEntity.ok(response);
+            }
 
-            return new ResponseEntity<>(response, HttpStatus.OK);
+            if ("INCOMPLETO".equalsIgnoreCase(response.getEstado())) {
+                return ResponseEntity.status(HttpStatus.OK).body(response);
+            }
+
+            return ResponseEntity.status(HttpStatus.OK).body(response);
 
         } catch (Exception e) {
             log.error("ERROR en análisis de Talent Radar: {}", e.getMessage());
 
+            Map<String, Object> response = new HashMap<>();
             response.put("error", "Error en análisis de Talent Radar");
             response.put("detalle", e.getMessage());
             response.put("estado", "ERROR");
             response.put("proyectoId", proyectoId);
 
-            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
     /**
-     * Genera rankings por área de especialidad para un evento
+     * Genera rankings por área para un evento.
      *
-     * POST /api/radar/generar-rankings/1
+     * POST /api/radar/generar-rankings/{eventoId}
      */
     @PostMapping("/generar-rankings/{eventoId}")
     public ResponseEntity<?> generarRankingsPorArea(@PathVariable Long eventoId) {
@@ -98,7 +86,7 @@ public class TalentRadarController {
             response.put("mensaje", "Rankings generados exitosamente");
             response.put("eventoId", eventoId);
 
-            return new ResponseEntity<>(response, HttpStatus.OK);
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             log.error("Error generando rankings: {}", e.getMessage());
@@ -106,14 +94,14 @@ public class TalentRadarController {
             response.put("error", "Error al generar rankings");
             response.put("detalle", e.getMessage());
 
-            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
     /**
-     * Actualiza el portafolio público con datos del radar
+     * Actualiza el portafolio público con datos del Radar.
      *
-     * POST /api/radar/actualizar-portfolio/123
+     * POST /api/radar/actualizar-portfolio/{usuarioId}
      */
     @PostMapping("/actualizar-portfolio/{usuarioId}")
     public ResponseEntity<?> actualizarPortafolioRadar(@PathVariable Long usuarioId) {
@@ -127,7 +115,7 @@ public class TalentRadarController {
             response.put("mensaje", "Portafolio Radar actualizado exitosamente");
             response.put("usuarioId", usuarioId);
 
-            return new ResponseEntity<>(response, HttpStatus.OK);
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             log.error("Error actualizando portafolio: {}", e.getMessage());
@@ -135,14 +123,14 @@ public class TalentRadarController {
             response.put("error", "Error al actualizar portafolio");
             response.put("detalle", e.getMessage());
 
-            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
     /**
-     * Obtiene el ranking de una área específica en un evento
+     * Obtiene ranking de una área específica.
      *
-     * GET /api/radar/rankings/1/FRONTEND
+     * GET /api/radar/rankings/{eventoId}/{area}
      */
     @GetMapping("/rankings/{eventoId}/{area}")
     public ResponseEntity<?> obtenerRankingsPorArea(
@@ -150,6 +138,7 @@ public class TalentRadarController {
             @PathVariable String area,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
+
         Map<String, Object> response = new HashMap<>();
 
         try {
@@ -158,12 +147,12 @@ public class TalentRadarController {
             List<RankingArea> rankings = talentRadarService.obtenerRankingsPorArea(eventoId, area);
 
             response.put("mensaje", "Rankings obtenidos exitosamente");
-            response.put("area", area);
+            response.put("area", area.toUpperCase());
             response.put("eventoId", eventoId);
             response.put("data", rankings);
             response.put("cantidad", rankings.size());
 
-            return new ResponseEntity<>(response, HttpStatus.OK);
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             log.error("Error obteniendo rankings: {}", e.getMessage());
@@ -171,35 +160,59 @@ public class TalentRadarController {
             response.put("error", "Error al obtener rankings");
             response.put("detalle", e.getMessage());
 
-            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
     /**
-     * ENDPOINT DE DEBUG: Estado de un análisis
-     * Puede usarse para verificar si un análisis se completó
+     * Estado real del análisis de un proyecto.
      *
-     * GET /api/radar/status/proyecto/123
+     * GET /api/radar/status/proyecto/{proyectoId}
      */
     @GetMapping("/status/proyecto/{proyectoId}")
     public ResponseEntity<?> verificarEstadoAnalisis(@PathVariable Long proyectoId) {
         Map<String, Object> response = new HashMap<>();
 
         try {
-            // TODO: Implementar lógica para verificar estado
-            // Por ahora, retorna respuesta genérica
+            Repositorio repositorio = repositorioRepository.findByProyectoId(proyectoId)
+                    .orElse(null);
 
-            response.put("mensaje", "Estado del análisis");
+            if (repositorio == null) {
+                response.put("proyectoId", proyectoId);
+                response.put("estado", "PENDIENTE");
+                response.put("mensaje", "El proyecto todavía no tiene análisis de Radar");
+                response.put("repositorioId", null);
+                response.put("totalCommits", 0);
+                response.put("contributorsGithub", 0);
+                response.put("usuariosMapeados", 0);
+                response.put("contribucionesGeneradas", 0);
+                response.put("detalleError", null);
+
+                return ResponseEntity.ok(response);
+            }
+
+            List<Contribucion> contribuciones = contribucionRepository.findByRepositorioId(repositorio.getId());
+
             response.put("proyectoId", proyectoId);
-            response.put("estado", "COMPLETADO");
+            response.put("repositorioId", repositorio.getId());
+            response.put("repositorioUrl", repositorio.getUrl());
+            response.put("estado", repositorio.getEstadoAnalisis());
+            response.put("detalleError", repositorio.getDetalleError());
+            response.put("ultimoAnalisis", repositorio.getUltimoAnalisis());
+            response.put("totalCommits", repositorio.getTotalCommits());
+            response.put("contributorsGithub", repositorio.getContributorsGithub());
+            response.put("usuariosMapeados", repositorio.getUsuariosMapeados());
+            response.put("contribucionesGeneradas", repositorio.getContribucionesGeneradas());
+            response.put("contribucionesRegistradas", contribuciones.size());
 
-            return new ResponseEntity<>(response, HttpStatus.OK);
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             response.put("error", "Error verificando estado");
             response.put("detalle", e.getMessage());
+            response.put("estado", "ERROR");
 
-            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 }
