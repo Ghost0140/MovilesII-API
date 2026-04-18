@@ -70,6 +70,7 @@ public class ProyectoServiceImpl implements IProyectoService {
         if (equipoId != null) {
             Equipo equipo = equipoRepository.findById(equipoId)
                     .orElseThrow(() -> new RuntimeException("Equipo no encontrado"));
+
             proyecto.setEquipo(equipo);
             proyecto.setUsuario(null);
         }
@@ -77,11 +78,28 @@ public class ProyectoServiceImpl implements IProyectoService {
         if (usuarioId != null) {
             Usuario usuario = usuarioRepository.findById(usuarioId)
                     .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
             proyecto.setUsuario(usuario);
             proyecto.setEquipo(null);
         }
 
+        String repoUrl = normalizarRepositorioUrl(proyecto.getRepositorioUrl());
+
+        if (repoUrl != null) {
+            boolean existeRepo = proyectoRepository.existsByRepositorioUrlAndEstadoNot(
+                    repoUrl,
+                    "ELIMINADO"
+            );
+
+            if (existeRepo) {
+                throw new RuntimeException("Este repositorio ya está asociado a otro proyecto activo");
+            }
+
+            proyecto.setRepositorioUrl(repoUrl);
+        }
+
         proyecto.setEstado("BORRADOR");
+
         return proyectoRepository.save(proyecto);
     }
 
@@ -90,9 +108,51 @@ public class ProyectoServiceImpl implements IProyectoService {
         Proyecto proyecto = proyectoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Proyecto no encontrado"));
 
-        if (proyectoActualizado.getTitulo() != null) proyecto.setTitulo(proyectoActualizado.getTitulo());
-        if (proyectoActualizado.getResumen() != null) proyecto.setResumen(proyectoActualizado.getResumen());
-        if (proyectoActualizado.getDescripcion() != null) proyecto.setDescripcion(proyectoActualizado.getDescripcion());
+        if ("ELIMINADO".equals(proyecto.getEstado())) {
+            throw new RuntimeException("No se puede actualizar un proyecto eliminado");
+        }
+
+        if (proyectoActualizado.getTitulo() != null) {
+            proyecto.setTitulo(proyectoActualizado.getTitulo());
+        }
+
+        if (proyectoActualizado.getResumen() != null) {
+            proyecto.setResumen(proyectoActualizado.getResumen());
+        }
+
+        if (proyectoActualizado.getDescripcion() != null) {
+            proyecto.setDescripcion(proyectoActualizado.getDescripcion());
+        }
+
+        if (proyectoActualizado.getRepositorioUrl() != null) {
+            String repoUrl = normalizarRepositorioUrl(proyectoActualizado.getRepositorioUrl());
+
+            if (repoUrl != null) {
+                boolean existeRepo = proyectoRepository.existsByRepositorioUrlAndIdNotAndEstadoNot(
+                        repoUrl,
+                        id,
+                        "ELIMINADO"
+                );
+
+                if (existeRepo) {
+                    throw new RuntimeException("Este repositorio ya está asociado a otro proyecto activo");
+                }
+            }
+
+            proyecto.setRepositorioUrl(repoUrl);
+        }
+
+        if (proyectoActualizado.getVideoUrl() != null) {
+            proyecto.setVideoUrl(proyectoActualizado.getVideoUrl());
+        }
+
+        if (proyectoActualizado.getDemoUrl() != null) {
+            proyecto.setDemoUrl(proyectoActualizado.getDemoUrl());
+        }
+
+        if (proyectoActualizado.getTecnologias() != null) {
+            proyecto.setTecnologias(proyectoActualizado.getTecnologias());
+        }
 
         return proyectoRepository.save(proyecto);
     }
@@ -130,6 +190,11 @@ public class ProyectoServiceImpl implements IProyectoService {
         Proyecto proyecto = proyectoRepository.findById(proyectoId)
                 .orElseThrow(() -> new RuntimeException("Proyecto no encontrado"));
 
+        if (proyecto.getRepositorioUrl() == null || proyecto.getRepositorioUrl().isBlank()) {
+            throw new RuntimeException("Debe registrar un repositorio antes de enviar el proyecto");
+        }
+
+        proyecto.setRepositorioUrl(normalizarRepositorioUrl(proyecto.getRepositorioUrl()));
         proyecto.setEstado("ENVIADO");
         proyecto.setFechaEnvio(LocalDateTime.now());
 
@@ -147,7 +212,7 @@ public class ProyectoServiceImpl implements IProyectoService {
         try {
             talentRadarService.analizarProyecto(proyectoId);
         } catch (Exception e) {
-            log.warn("Falló Talent Radar: {}", e.getMessage());
+            log.warn("Falló Talent Radar para proyecto {}: {}", proyectoId, e.getMessage());
         }
 
         return aprobado;
@@ -160,5 +225,19 @@ public class ProyectoServiceImpl implements IProyectoService {
 
         proyecto.setEstado("RECHAZADO");
         return proyectoRepository.save(proyecto);
+    }
+
+    private String normalizarRepositorioUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+
+        String limpia = url.trim();
+
+        if (limpia.endsWith("/")) {
+            limpia = limpia.substring(0, limpia.length() - 1);
+        }
+
+        return limpia;
     }
 }
