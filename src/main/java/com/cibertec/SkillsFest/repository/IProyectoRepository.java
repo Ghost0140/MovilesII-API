@@ -11,6 +11,8 @@ public interface IProyectoRepository extends JpaRepository<Proyecto, Long> {
 
     List<Proyecto> findByEstado(String estado);
 
+    boolean existsByEquipoIdAndEstadoNot(Long equipoId, String estado);
+
     boolean existsByRepositorioUrlAndEstadoNot(String repositorioUrl, String estado);
 
     boolean existsByRepositorioUrlAndIdNotAndEstadoNot(String repositorioUrl, Long id, String estado);

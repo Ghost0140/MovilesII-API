@@ -19,6 +19,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.fasterxml.jackson.databind.JsonNode;
 
 @Slf4j
 @Service
@@ -73,12 +74,13 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
 
             Map<String, Double> lenguajes = obtenerLenguajes(owner, repo);
             List<Map<String, Object>> contributors = obtenerContribuidores(owner, repo);
+            Set<String> pistasRepositorio = detectarPistasRepositorio(owner, repo);
 
             int totalCommits = contributors.stream()
                     .map(c -> toInt(c.getOrDefault("contributions", 0)))
                     .reduce(0, Integer::sum);
 
-            Map<String, Double> scoreBase = calcularScoresBase(lenguajes);
+            Map<String, Double> scoreBase = calcularScoresBase(lenguajes, pistasRepositorio);
 
             int usuariosMapeados = 0;
             int contribucionesGeneradas = 0;
@@ -118,7 +120,7 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
                 contribucion.setScoreBd(bd(scoreBase.get("BD") * factor));
                 contribucion.setScoreMobile(bd(scoreBase.get("MOBILE") * factor));
                 contribucion.setScoreTesting(bd(scoreBase.get("TESTING") * factor));
-                contribucion.setTecnologiasDetectadas(generarTecnologiasDetectadas(lenguajes));
+                contribucion.setTecnologiasDetectadas(generarTecnologiasDetectadas(lenguajes, pistasRepositorio));
                 contribucion.setAnalizadoEn(LocalDateTime.now());
 
                 contribucionRepository.save(contribucion);
@@ -318,10 +320,10 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
         }
     }
 
-    private Map<String, Double> calcularScoresBase(Map<String, Double> lenguajes) {
+    private Map<String, Double> calcularScoresBase(Map<String, Double> lenguajes, Set<String> pistasRepositorio) {
         Map<String, Double> scores = new HashMap<>();
 
-        scores.put("FRONTEND", scorePorLenguajes(
+        double frontend = scorePorLenguajes(
                 lenguajes,
                 "javascript",
                 "typescript",
@@ -329,9 +331,9 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
                 "css",
                 "react",
                 "vue"
-        ));
+        );
 
-        scores.put("BACKEND", scorePorLenguajes(
+        double backend = scorePorLenguajes(
                 lenguajes,
                 "java",
                 "python",
@@ -340,33 +342,68 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
                 "php",
                 "go",
                 "spring"
-        ));
+        );
 
-        scores.put("BD", scorePorLenguajes(
+        double bd = scorePorLenguajes(
                 lenguajes,
                 "sql",
                 "plsql",
                 "mysql",
                 "postgres"
-        ));
+        );
 
-        scores.put("MOBILE", scorePorLenguajes(
+        double mobile = scorePorLenguajes(
                 lenguajes,
                 "kotlin",
                 "swift",
                 "dart",
                 "react native",
                 "android"
-        ));
+        );
 
-        scores.put("TESTING", scorePorLenguajes(
+        double testing = scorePorLenguajes(
                 lenguajes,
                 "jest",
                 "junit",
                 "pytest",
                 "cypress",
                 "gherkin"
-        ));
+        );
+
+        // ===========================
+        // PISTAS POR ESTRUCTURA
+        // ===========================
+
+        if (pistasRepositorio.contains("react")) frontend += 20;
+        if (pistasRepositorio.contains("vite")) frontend += 10;
+        if (pistasRepositorio.contains("vue")) frontend += 15;
+        if (pistasRepositorio.contains("angular")) frontend += 15;
+        if (pistasRepositorio.contains("frontend-structure")) frontend += 10;
+
+        if (pistasRepositorio.contains("spring")) backend += 20;
+        if (pistasRepositorio.contains("maven")) backend += 10;
+        if (pistasRepositorio.contains("gradle")) backend += 10;
+        if (pistasRepositorio.contains("backend-structure")) backend += 10;
+
+        if (pistasRepositorio.contains("sql-files")) bd += 25;
+        if (pistasRepositorio.contains("migrations")) bd += 20;
+        if (pistasRepositorio.contains("database-folder")) bd += 15;
+
+        if (pistasRepositorio.contains("android")) mobile += 25;
+        if (pistasRepositorio.contains("ios")) mobile += 25;
+        if (pistasRepositorio.contains("flutter")) mobile += 20;
+        if (pistasRepositorio.contains("react-native")) mobile += 20;
+
+        if (pistasRepositorio.contains("tests")) testing += 25;
+        if (pistasRepositorio.contains("jest")) testing += 20;
+        if (pistasRepositorio.contains("cypress")) testing += 25;
+        if (pistasRepositorio.contains("junit")) testing += 20;
+
+        scores.put("FRONTEND", Math.min(frontend, 100.0));
+        scores.put("BACKEND", Math.min(backend, 100.0));
+        scores.put("BD", Math.min(bd, 100.0));
+        scores.put("MOBILE", Math.min(mobile, 100.0));
+        scores.put("TESTING", Math.min(testing, 100.0));
 
         return scores;
     }
@@ -401,8 +438,10 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
                 .orElse(0.0);
     }
 
-    private String generarTecnologiasDetectadas(Map<String, Double> lenguajes) {
-        List<Map<String, Object>> data = lenguajes.entrySet()
+    private String generarTecnologiasDetectadas(Map<String, Double> lenguajes, Set<String> pistasRepositorio) {
+        Map<String, Object> resultado = new HashMap<>();
+
+        List<Map<String, Object>> lenguajesDetectados = lenguajes.entrySet()
                 .stream()
                 .sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
                 .limit(5)
@@ -415,7 +454,10 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
                 })
                 .collect(Collectors.toList());
 
-        return escribirJson(data);
+        resultado.put("lenguajes", lenguajesDetectados);
+        resultado.put("pistasRepositorio", pistasRepositorio);
+
+        return escribirJson(resultado);
     }
 
     private Map<String, Double> obtenerLenguajes(String owner, String repo) {
@@ -452,6 +494,187 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
             return objectMapper.readValue(body, new TypeReference<>() {});
         } catch (Exception e) {
             throw new RuntimeException("Error leyendo contribuidores de GitHub: " + e.getMessage());
+        }
+    }
+
+    private Set<String> detectarPistasRepositorio(String owner, String repo) {
+        Set<String> pistas = new HashSet<>();
+
+        try {
+            String body = githubGet("/repos/" + owner + "/" + repo + "/contents");
+            JsonNode root = objectMapper.readTree(body);
+
+            for (JsonNode node : root) {
+                String name = node.path("name").asText("").toLowerCase();
+                String type = node.path("type").asText("").toLowerCase();
+
+                if ("package.json".equals(name)) {
+                    pistas.add("node");
+                }
+
+                if ("vite.config.js".equals(name) || "vite.config.ts".equals(name)) {
+                    pistas.add("vite");
+                    pistas.add("frontend-structure");
+                }
+
+                if ("pom.xml".equals(name)) {
+                    pistas.add("maven");
+                    pistas.add("backend-structure");
+                }
+
+                if ("build.gradle".equals(name) || "build.gradle.kts".equals(name)) {
+                    pistas.add("gradle");
+                    pistas.add("backend-structure");
+                    pistas.add("android");
+                }
+
+                if ("src".equals(name) && "dir".equals(type)) {
+                    pistas.add("src");
+                }
+
+                if ("cypress".equals(name)) {
+                    pistas.add("cypress");
+                    pistas.add("tests");
+                }
+
+                if ("__tests__".equals(name) || "test".equals(name) || "tests".equals(name)) {
+                    pistas.add("tests");
+                }
+
+                if ("database".equals(name) || "db".equals(name)) {
+                    pistas.add("database-folder");
+                }
+
+                if ("migrations".equals(name)) {
+                    pistas.add("migrations");
+                }
+
+                if ("android".equals(name)) {
+                    pistas.add("android");
+                }
+
+                if ("ios".equals(name)) {
+                    pistas.add("ios");
+                }
+
+                if (name.endsWith(".sql")) {
+                    pistas.add("sql-files");
+                }
+
+                if ("pubspec.yaml".equals(name)) {
+                    pistas.add("flutter");
+                    pistas.add("mobile-structure");
+                }
+
+                if ("podfile".equals(name) || "info.plist".equals(name)) {
+                    pistas.add("ios");
+                }
+            }
+
+            if (pistas.contains("node")) {
+                detectarPistasPackageJson(owner, repo, pistas);
+            }
+
+            if (pistas.contains("maven")) {
+                detectarPistasPomXml(owner, repo, pistas);
+            }
+
+        } catch (Exception e) {
+            log.warn("No se pudo analizar estructura del repositorio {}/{}: {}", owner, repo, e.getMessage());
+        }
+
+        return pistas;
+    }
+
+    private void detectarPistasPackageJson(String owner, String repo, Set<String> pistas) {
+        try {
+            String body = githubGet("/repos/" + owner + "/" + repo + "/contents/package.json");
+            JsonNode json = objectMapper.readTree(body);
+
+            String content = json.path("content").asText("");
+
+            if (content == null || content.isBlank()) {
+                return;
+            }
+
+            String decoded = new String(Base64.getMimeDecoder().decode(content));
+            String lower = decoded.toLowerCase();
+
+            if (lower.contains("\"react\"")) {
+                pistas.add("react");
+                pistas.add("frontend-structure");
+            }
+
+            if (lower.contains("\"vue\"")) {
+                pistas.add("vue");
+                pistas.add("frontend-structure");
+            }
+
+            if (lower.contains("\"@angular/core\"")) {
+                pistas.add("angular");
+                pistas.add("frontend-structure");
+            }
+
+            if (lower.contains("\"vite\"")) {
+                pistas.add("vite");
+                pistas.add("frontend-structure");
+            }
+
+            if (lower.contains("\"jest\"")) {
+                pistas.add("jest");
+                pistas.add("tests");
+            }
+
+            if (lower.contains("\"cypress\"")) {
+                pistas.add("cypress");
+                pistas.add("tests");
+            }
+
+            if (lower.contains("\"react-native\"")) {
+                pistas.add("react-native");
+                pistas.add("mobile-structure");
+            }
+
+            if (lower.contains("\"express\"") || lower.contains("\"nestjs\"")) {
+                pistas.add("node-backend");
+                pistas.add("backend-structure");
+            }
+
+        } catch (Exception e) {
+            log.warn("No se pudo leer package.json para {}/{}: {}", owner, repo, e.getMessage());
+        }
+    }
+
+    private void detectarPistasPomXml(String owner, String repo, Set<String> pistas) {
+        try {
+            String body = githubGet("/repos/" + owner + "/" + repo + "/contents/pom.xml");
+            JsonNode json = objectMapper.readTree(body);
+
+            String content = json.path("content").asText("");
+
+            if (content == null || content.isBlank()) {
+                return;
+            }
+
+            String decoded = new String(Base64.getMimeDecoder().decode(content));
+            String lower = decoded.toLowerCase();
+
+            if (lower.contains("spring-boot")) {
+                pistas.add("spring");
+                pistas.add("backend-structure");
+            }
+
+            if (lower.contains("mysql") || lower.contains("postgresql") || lower.contains("mariadb")) {
+                pistas.add("database-folder");
+            }
+
+            if (lower.contains("junit") || lower.contains("mockito")) {
+                pistas.add("junit");
+                pistas.add("tests");
+            }
+
+        } catch (Exception e) {
+            log.warn("No se pudo leer pom.xml para {}/{}: {}", owner, repo, e.getMessage());
         }
     }
 
