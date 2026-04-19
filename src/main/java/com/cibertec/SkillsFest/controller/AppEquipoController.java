@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
+import java.util.Arrays;
 
 @RestController
 @RequestMapping("/api/app/equipos")
@@ -127,14 +128,9 @@ public class AppEquipoController {
             return true;
         }
 
-        String miembros = equipo.getMiembros();
-
-        if (miembros != null && miembros.contains(usuario.getId().toString())) {
-            return true;
-        }
-
-        return false;
+        return usuarioEstaEnMiembros(equipo.getMiembros(), usuario.getId());
     }
+
 
     private AppEquipoResponse mapEquipo(Equipo equipo) {
         String liderNombre = null;
@@ -156,5 +152,19 @@ public class AppEquipoController {
                 .miembros(equipo.getMiembros())
                 .creadoEn(equipo.getCreadoEn())
                 .build();
+    }
+
+    private boolean usuarioEstaEnMiembros(String miembros, Long usuarioId) {
+        if (miembros == null || miembros.isBlank() || usuarioId == null) {
+            return false;
+        }
+
+        String normalizado = miembros
+                .replace("[", "")
+                .replace("]", "")
+                .replace(" ", "");
+
+        return Arrays.stream(normalizado.split(","))
+                .anyMatch(id -> id.equals(usuarioId.toString()));
     }
 }

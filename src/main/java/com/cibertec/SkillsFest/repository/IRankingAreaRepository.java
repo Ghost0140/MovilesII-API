@@ -14,6 +14,6 @@ import java.util.Optional;
 public interface IRankingAreaRepository extends JpaRepository<RankingArea, Long> {
     List<RankingArea> findByEventoId(Long eventoId);
     List<RankingArea> findByEventoIdAndArea(Long eventoId, String area);
-    Page<RankingArea> findByEventoIdAndArea(Long eventoId, String area, Pageable pageable);
-    Optional<RankingArea> findByUsuarioIdAndEventoIdAndArea(Long usuarioId, Long eventoId, String area);
+
+
 }
