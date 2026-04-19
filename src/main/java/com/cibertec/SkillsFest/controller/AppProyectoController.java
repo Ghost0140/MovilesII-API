@@ -1,5 +1,6 @@
 package com.cibertec.SkillsFest.controller;
 
+import java.util.Arrays;
 import com.cibertec.SkillsFest.dto.app.ActualizarRepositorioRequest;
 import com.cibertec.SkillsFest.dto.app.AppProyectoRequest;
 import com.cibertec.SkillsFest.dto.app.AppProyectoResponse;
@@ -17,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import com.cibertec.SkillsFest.dto.app.AppHistorialProyectoResponse;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -221,13 +223,30 @@ public class AppProyectoController {
             return true;
         }
 
-        if (proyecto.getEquipo() != null &&
-                proyecto.getEquipo().getLider() != null &&
-                Objects.equals(proyecto.getEquipo().getLider().getId(), usuario.getId())) {
-            return true;
+        if (proyecto.getEquipo() != null) {
+            if (proyecto.getEquipo().getLider() != null &&
+                    Objects.equals(proyecto.getEquipo().getLider().getId(), usuario.getId())) {
+                return true;
+            }
+
+            return usuarioEstaEnMiembros(proyecto.getEquipo().getMiembros(), usuario.getId());
         }
 
         return false;
+    }
+
+    private boolean usuarioEstaEnMiembros(String miembros, Long usuarioId) {
+        if (miembros == null || miembros.isBlank() || usuarioId == null) {
+            return false;
+        }
+
+        String normalizado = miembros
+                .replace("[", "")
+                .replace("]", "")
+                .replace(" ", "");
+
+        return Arrays.stream(normalizado.split(","))
+                .anyMatch(id -> id.equals(usuarioId.toString()));
     }
 
     private void validarRepositorioDuplicado(String repoUrl, Long proyectoIdActual) {
@@ -364,4 +383,72 @@ public class AppProyectoController {
 
         return ResponseEntity.ok(mapProyecto(guardado));
     }
+
+    @GetMapping("/historial")
+    public ResponseEntity<AppHistorialProyectoResponse> obtenerHistorialProyectos(Authentication authentication) {
+        Usuario usuario = obtenerUsuarioAutenticado(authentication);
+
+        List<Proyecto> proyectos = proyectoRepository.findAll()
+                .stream()
+                .filter(p -> !"ELIMINADO".equalsIgnoreCase(p.getEstado()))
+                .filter(p -> perteneceAlUsuario(p, usuario))
+                .sorted((a, b) -> {
+                    if (a.getFechaEnvio() == null && b.getFechaEnvio() == null) return 0;
+                    if (a.getFechaEnvio() == null) return 1;
+                    if (b.getFechaEnvio() == null) return -1;
+                    return b.getFechaEnvio().compareTo(a.getFechaEnvio());
+                })
+                .toList();
+
+        List<AppProyectoResponse> activos = proyectos.stream()
+                .filter(p ->
+                        "BORRADOR".equalsIgnoreCase(p.getEstado()) ||
+                                "ENVIADO".equalsIgnoreCase(p.getEstado()) ||
+                                "OBSERVADO".equalsIgnoreCase(p.getEstado())
+                )
+                .map(this::mapProyecto)
+                .toList();
+
+        List<AppProyectoResponse> historicos = proyectos.stream()
+                .filter(p ->
+                        "APROBADO".equalsIgnoreCase(p.getEstado()) ||
+                                "RECHAZADO".equalsIgnoreCase(p.getEstado())
+                )
+                .map(this::mapProyecto)
+                .toList();
+
+        int totalIndividuales = (int) proyectos.stream()
+                .filter(p -> p.getEquipo() == null)
+                .count();
+
+        int totalGrupales = (int) proyectos.stream()
+                .filter(p -> p.getEquipo() != null)
+                .count();
+
+        int totalAprobados = (int) proyectos.stream()
+                .filter(p -> "APROBADO".equalsIgnoreCase(p.getEstado()))
+                .count();
+
+        int totalEnviados = (int) proyectos.stream()
+                .filter(p -> "ENVIADO".equalsIgnoreCase(p.getEstado()))
+                .count();
+
+        AppHistorialProyectoResponse response = AppHistorialProyectoResponse.builder()
+                .usuarioId(usuario.getId())
+                .nombres(usuario.getNombres())
+                .apellidos(usuario.getApellidos())
+                .email(usuario.getEmail())
+                .totalProyectos(proyectos.size())
+                .totalIndividuales(totalIndividuales)
+                .totalGrupales(totalGrupales)
+                .totalAprobados(totalAprobados)
+                .totalEnviados(totalEnviados)
+                .activos(activos)
+                .historicos(historicos)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+
 }

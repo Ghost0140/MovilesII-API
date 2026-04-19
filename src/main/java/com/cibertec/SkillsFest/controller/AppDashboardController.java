@@ -5,6 +5,7 @@ import com.cibertec.SkillsFest.entity.Contribucion;
 import com.cibertec.SkillsFest.entity.Evento;
 import com.cibertec.SkillsFest.entity.PortafolioPublico;
 import com.cibertec.SkillsFest.entity.Proyecto;
+import java.util.Arrays;
 import com.cibertec.SkillsFest.entity.Repositorio;
 import com.cibertec.SkillsFest.entity.Usuario;
 import com.cibertec.SkillsFest.repository.IContribucionRepository;
@@ -121,14 +122,18 @@ public class AppDashboardController {
             return true;
         }
 
-        if (proyecto.getEquipo() != null &&
-                proyecto.getEquipo().getLider() != null &&
-                Objects.equals(proyecto.getEquipo().getLider().getId(), usuario.getId())) {
-            return true;
+        if (proyecto.getEquipo() != null) {
+            if (proyecto.getEquipo().getLider() != null &&
+                    Objects.equals(proyecto.getEquipo().getLider().getId(), usuario.getId())) {
+                return true;
+            }
+
+            return usuarioEstaEnMiembros(proyecto.getEquipo().getMiembros(), usuario.getId());
         }
 
         return false;
     }
+
 
     private AppDashboardResponse.RadarResumen construirRadarResumen(
             PortafolioPublico portafolio,
@@ -234,5 +239,18 @@ public class AppDashboardController {
             case "PENDIENTE" -> "Talent Radar pendiente";
             default -> "Estado de Radar desconocido";
         };
+    }
+    private boolean usuarioEstaEnMiembros(String miembros, Long usuarioId) {
+        if (miembros == null || miembros.isBlank() || usuarioId == null) {
+            return false;
+        }
+
+        String normalizado = miembros
+                .replace("[", "")
+                .replace("]", "")
+                .replace(" ", "");
+
+        return Arrays.stream(normalizado.split(","))
+                .anyMatch(id -> id.equals(usuarioId.toString()));
     }
 }
