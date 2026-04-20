@@ -21,5 +21,6 @@ public interface IUsuarioRepository extends JpaRepository<Usuario, Long> {
 
     boolean existsByEmail(String email);
     boolean existsByNumeroDocumento(String numeroDocumento);
+    boolean existsByCodigoEstudiante(String codigoEstudiante);
     boolean existsByGithubUsername(String githubUsername);
 }

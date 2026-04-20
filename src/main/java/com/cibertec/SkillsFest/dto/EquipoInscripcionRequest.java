@@ -21,3 +21,4 @@ public record EquipoInscripcionRequest(
         String nombreEquipo
 ) {
 }
+

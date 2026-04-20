@@ -10,6 +10,7 @@ public record UsuarioResponse(
         Integer ciclo,
         String codigoEstudiante,
         String githubUsername,
+        String roles,
         Boolean activo,
         Long sedeId,
         String sedeNombre

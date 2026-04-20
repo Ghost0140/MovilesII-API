@@ -50,16 +50,21 @@ public class UsuarioServiceImpl implements IUsuarioService {
     @Override
     public Usuario crear(Usuario usuario, Long sedeId) {
         if (usuarioRepository.existsByEmail(usuario.getEmail())) {
-            throw new RuntimeException("Ya existe un usuario con ese email");
+            throw new IllegalArgumentException("El correo electrónico ya está en uso.");
         }
 
         if (usuario.getNumeroDocumento() != null && usuarioRepository.existsByNumeroDocumento(usuario.getNumeroDocumento())) {
-            throw new RuntimeException("Ya existe un usuario con ese documento");
+            throw new IllegalArgumentException("El número de documento ya está registrado.");
+        }
+
+        if (usuario.getCodigoEstudiante() != null && !usuario.getCodigoEstudiante().isBlank() 
+                && usuarioRepository.existsByCodigoEstudiante(usuario.getCodigoEstudiante())) {
+            throw new IllegalArgumentException("El código de estudiante ya se encuentra registrado.");
         }
 
         if (usuario.getGithubUsername() != null && !usuario.getGithubUsername().isBlank()
                 && usuarioRepository.existsByGithubUsername(usuario.getGithubUsername())) {
-            throw new RuntimeException("Ya existe un usuario con ese githubUsername");
+            throw new IllegalArgumentException("El usuario de GitHub ya está vinculado a otra cuenta.");
         }
         
         if (usuario.getPassword() != null) {
