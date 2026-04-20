@@ -18,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.List;
 import java.util.Map;
@@ -67,23 +68,29 @@ public class UsuarioController {
 
     @PostMapping
     public ResponseEntity<?> crear(@Valid @RequestBody UsuarioCreateRequest request) {
-        Usuario nuevoUsuario = new Usuario();
-        nuevoUsuario.setNombres(request.nombres());
-        nuevoUsuario.setApellidos(request.apellidos());
-        nuevoUsuario.setEmail(request.email());
-        nuevoUsuario.setPassword(request.password());
-        nuevoUsuario.setNumeroDocumento(request.numeroDocumento());
-        nuevoUsuario.setCarrera(request.carrera());
-        nuevoUsuario.setCiclo(request.ciclo());
-        nuevoUsuario.setCodigoEstudiante(request.codigoEstudiante());
-        nuevoUsuario.setGithubUsername(request.githubUsername());
+        try {
+            Usuario nuevoUsuario = new Usuario();
+            nuevoUsuario.setNombres(request.nombres());
+            nuevoUsuario.setApellidos(request.apellidos());
+            nuevoUsuario.setEmail(request.email());
+            nuevoUsuario.setPassword(request.password());
+            nuevoUsuario.setNumeroDocumento(request.numeroDocumento());
+            nuevoUsuario.setCarrera(request.carrera());
+            nuevoUsuario.setCiclo(request.ciclo());
+            nuevoUsuario.setCodigoEstudiante(request.codigoEstudiante());
+            nuevoUsuario.setGithubUsername(request.githubUsername());
+            Usuario guardado = usuarioService.crear(nuevoUsuario, request.sedeId());
 
-        Usuario guardado = usuarioService.crear(nuevoUsuario, request.sedeId());
+            return new ResponseEntity<>(Map.of(
+                    "mensaje", "Usuario creado exitosamente",
+                    "data", ApiMapper.toUsuarioResponse(guardado)
+            ), HttpStatus.CREATED);
 
-        return new ResponseEntity<>(Map.of(
-                "mensaje", "Usuario creado exitosamente",
-                "data", ApiMapper.toUsuarioResponse(guardado)
-        ), HttpStatus.CREATED);
+        } catch (IllegalArgumentException e) {
+            return new ResponseEntity<>(Map.of(
+                    "detalle", e.getMessage() 
+            ), HttpStatus.CONFLICT); 
+        }
     }
 
     @PutMapping("/{id}")

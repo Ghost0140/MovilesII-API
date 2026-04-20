@@ -18,6 +18,7 @@ public class ApiMapper {
                 u.getCiclo(),
                 u.getCodigoEstudiante(),
                 u.getGithubUsername(),
+                u.getRoles(),
                 u.getActivo(),
                 u.getSede() != null ? u.getSede().getId() : null,
                 u.getSede() != null ? u.getSede().getNombre() : null
