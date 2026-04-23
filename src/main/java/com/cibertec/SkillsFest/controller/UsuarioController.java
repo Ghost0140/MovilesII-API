@@ -98,6 +98,7 @@ public class UsuarioController {
         Usuario usuarioActualizado = new Usuario();
         usuarioActualizado.setNombres(request.nombres());
         usuarioActualizado.setApellidos(request.apellidos());
+        usuarioActualizado.setEmail(request.email());
         usuarioActualizado.setCarrera(request.carrera());
         usuarioActualizado.setCiclo(request.ciclo());
         usuarioActualizado.setGithubUsername(request.githubUsername());

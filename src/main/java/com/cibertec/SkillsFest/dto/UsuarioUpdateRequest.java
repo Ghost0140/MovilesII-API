@@ -1,5 +1,6 @@
 package com.cibertec.SkillsFest.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -12,6 +13,10 @@ public record UsuarioUpdateRequest(
 
         @Size(max = 100, message = "Los apellidos no pueden superar 100 caracteres")
         String apellidos,
+        
+        @Email(message = "Debe ser un correo electrónico válido")
+        @Size(max = 150, message = "El email no puede superar 150 caracteres")
+        String email,
 
         @NotNull(message = "La sede es obligatoria")
         Long sedeId,
@@ -20,7 +25,7 @@ public record UsuarioUpdateRequest(
         String carrera,
 
         @Min(value = 1, message = "El ciclo mínimo es 1")
-        @Max(value = 12, message = "El ciclo máximo es 12")
+        @Max(value = 6, message = "El ciclo máximo es 6")
         Integer ciclo,
 
         @Size(max = 100, message = "El githubUsername no puede superar 100 caracteres")

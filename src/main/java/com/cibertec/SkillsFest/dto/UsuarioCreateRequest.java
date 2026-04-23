@@ -39,6 +39,7 @@ public record UsuarioCreateRequest(
         @Max(value = 12, message = "El ciclo máximo es 12")
         Integer ciclo,
 
+        @NotBlank(message = "El código de estudiante es obligatorio")
         @Size(max = 20, message = "El código de estudiante no puede superar 20 caracteres")
         String codigoEstudiante,
 

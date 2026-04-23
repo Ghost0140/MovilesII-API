@@ -95,6 +95,14 @@ public class UsuarioServiceImpl implements IUsuarioService {
         if (usuarioActualizado.getCarrera() != null) usuario.setCarrera(usuarioActualizado.getCarrera());
         if (usuarioActualizado.getCiclo() != null) usuario.setCiclo(usuarioActualizado.getCiclo());
 
+        if (usuarioActualizado.getEmail() != null
+                && !usuarioActualizado.getEmail().equals(usuario.getEmail())) {
+            if (usuarioRepository.existsByEmail(usuarioActualizado.getEmail())) {
+                throw new IllegalArgumentException("El correo electrónico ya está en uso por otro usuario");
+            }
+            usuario.setEmail(usuarioActualizado.getEmail());
+        }
+        
         if (usuarioActualizado.getGithubUsername() != null
                 && !usuarioActualizado.getGithubUsername().equals(usuario.getGithubUsername())) {
             if (usuarioRepository.existsByGithubUsername(usuarioActualizado.getGithubUsername())) {

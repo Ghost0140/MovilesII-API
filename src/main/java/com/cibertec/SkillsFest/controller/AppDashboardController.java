@@ -46,9 +46,7 @@ public class AppDashboardController {
 
         List<Evento> eventosActivos = eventoRepository.findAll()
                 .stream()
-                .filter(e -> !"ELIMINADO".equalsIgnoreCase(e.getEstado()))
-                .filter(e -> !"CANCELADO".equalsIgnoreCase(e.getEstado()))
-                .filter(e -> !"FINALIZADO".equalsIgnoreCase(e.getEstado()))
+                .filter(e -> "PUBLICADO".equalsIgnoreCase(e.getEstado()) || "ACTIVO".equalsIgnoreCase(e.getEstado()))
                 .sorted(Comparator.comparing(Evento::getFechaEvento))
                 .limit(5)
                 .toList();
