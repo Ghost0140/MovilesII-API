@@ -184,13 +184,13 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
     }
 
     @Override
-    public void generarRankingsPorArea(Long eventoId) {
+    public synchronized void generarRankingsPorArea(Long eventoId) {
         List<Proyecto> proyectos = proyectoRepository.findByEventoIdAndEstadoNot(eventoId, "ELIMINADO")
                 .stream()
                 .filter(p -> "APROBADO".equalsIgnoreCase(p.getEstado()))
                 .toList();
 
-        rankingAreaRepository.deleteAll(rankingAreaRepository.findByEventoId(eventoId));
+        limpiarRankingsEvento(eventoId);
 
         if (proyectos.isEmpty()) {
             return;
@@ -330,6 +330,15 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
             ranking.setPosicion(posicion++);
 
             rankingAreaRepository.save(ranking);
+        }
+    }
+
+    private void limpiarRankingsEvento(Long eventoId) {
+        List<RankingArea> existentes = rankingAreaRepository.findByEventoId(eventoId);
+
+        if (!existentes.isEmpty()) {
+            rankingAreaRepository.deleteAllInBatch(existentes);
+            rankingAreaRepository.flush();
         }
     }
 
