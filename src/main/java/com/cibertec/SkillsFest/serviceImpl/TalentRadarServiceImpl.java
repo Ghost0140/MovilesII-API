@@ -699,6 +699,10 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
             return response.getBody();
 
         } catch (HttpStatusCodeException e) {
+            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+                throw new RuntimeException("GitHub API respondió 401 UNAUTHORIZED. Revisa la variable GITHUB_TOKEN en Railway: el token puede estar vencido, revocado o mal copiado.");
+            }
+
             throw new RuntimeException("GitHub API respondió "
                     + e.getStatusCode()
                     + ": "

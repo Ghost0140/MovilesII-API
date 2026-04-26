@@ -47,7 +47,10 @@ public class AppDashboardController {
         List<Evento> eventosActivos = eventoRepository.findAll()
                 .stream()
                 .filter(e -> "PUBLICADO".equalsIgnoreCase(e.getEstado()) || "ACTIVO".equalsIgnoreCase(e.getEstado()))
-                .sorted(Comparator.comparing(Evento::getFechaEvento))
+                .sorted(Comparator.comparing(
+                        Evento::getFechaEvento,
+                        Comparator.nullsLast(Comparator.naturalOrder())
+                ))
                 .limit(5)
                 .toList();
 
@@ -154,6 +157,7 @@ public class AppDashboardController {
         }
 
         Contribucion ultima = contribuciones.stream()
+                .filter(c -> c.getAnalizadoEn() != null)
                 .max(Comparator.comparing(Contribucion::getAnalizadoEn))
                 .orElse(null);
 

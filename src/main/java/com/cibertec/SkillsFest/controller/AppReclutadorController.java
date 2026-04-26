@@ -79,7 +79,10 @@ public class AppReclutadorController {
 
         List<AppContribuidorResponse> response = contribucionRepository.findByUsuarioId(usuario.getId())
                 .stream()
-                .sorted(Comparator.comparing(Contribucion::getAnalizadoEn).reversed())
+                .sorted(Comparator.comparing(
+                        Contribucion::getAnalizadoEn,
+                        Comparator.nullsLast(Comparator.reverseOrder())
+                ))
                 .map(this::mapContribuidor)
                 .toList();
 

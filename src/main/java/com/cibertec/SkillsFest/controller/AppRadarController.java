@@ -69,8 +69,28 @@ public class AppRadarController {
         }
 
         Contribucion ultimaContribucion = contribuciones.stream()
+                .filter(c -> c.getAnalizadoEn() != null)
                 .max(Comparator.comparing(Contribucion::getAnalizadoEn))
-                .orElseThrow(() -> new RuntimeException("No se pudo obtener la última contribución"));
+                .orElse(null);
+
+        if (ultimaContribucion == null || ultimaContribucion.getRepositorio() == null) {
+            MiRadarResponse response = MiRadarResponse.builder()
+                    .usuarioId(usuario.getId())
+                    .nombres(usuario.getNombres())
+                    .apellidos(usuario.getApellidos())
+                    .email(usuario.getEmail())
+                    .githubUsername(usuario.getGithubUsername())
+                    .estado("PENDIENTE")
+                    .mensaje("Radar pendiente")
+                    .radarFrontend(valorOrZero(portafolio != null ? portafolio.getRadarFrontend() : null))
+                    .radarBackend(valorOrZero(portafolio != null ? portafolio.getRadarBackend() : null))
+                    .radarBd(valorOrZero(portafolio != null ? portafolio.getRadarBd() : null))
+                    .radarMobile(valorOrZero(portafolio != null ? portafolio.getRadarMobile() : null))
+                    .radarTesting(valorOrZero(portafolio != null ? portafolio.getRadarTesting() : null))
+                    .build();
+
+            return ResponseEntity.ok(response);
+        }
 
         Repositorio repositorio = ultimaContribucion.getRepositorio();
 
