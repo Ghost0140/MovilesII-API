@@ -9,10 +9,8 @@ import com.cibertec.SkillsFest.repository.IEventoRepository;
 import com.cibertec.SkillsFest.repository.IProyectoRepository;
 import com.cibertec.SkillsFest.repository.IUsuarioRepository;
 import com.cibertec.SkillsFest.service.IProyectoService;
-import com.cibertec.SkillsFest.service.ITalentRadarService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,7 +19,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-@Slf4j
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -31,7 +28,6 @@ public class ProyectoServiceImpl implements IProyectoService {
     private final IEventoRepository eventoRepository;
     private final IEquipoRepository equipoRepository;
     private final IUsuarioRepository usuarioRepository;
-    private final ITalentRadarService talentRadarService;
 
     @Override
     public List<Proyecto> obtenerTodos() {
@@ -207,15 +203,7 @@ public class ProyectoServiceImpl implements IProyectoService {
                 .orElseThrow(() -> new RuntimeException("Proyecto no encontrado"));
 
         proyecto.setEstado("APROBADO");
-        Proyecto aprobado = proyectoRepository.save(proyecto);
-
-        try {
-            talentRadarService.analizarProyecto(proyectoId);
-        } catch (Exception e) {
-            log.warn("Falló Talent Radar para proyecto {}: {}", proyectoId, e.getMessage());
-        }
-
-        return aprobado;
+        return proyectoRepository.save(proyecto);
     }
 
     @Override

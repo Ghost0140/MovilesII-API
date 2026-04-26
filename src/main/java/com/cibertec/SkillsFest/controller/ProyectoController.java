@@ -127,6 +127,22 @@ public class ProyectoController {
     @PostMapping("/{id}/aprobar")
     public ResponseEntity<?> aprobarProyecto(@PathVariable Long id) {
         Proyecto proyecto = proyectoService.aprobarProyecto(id);
+
+        String radarAdvertencia = null;
+        try {
+            talentRadarService.analizarProyecto(id);
+        } catch (Exception e) {
+            radarAdvertencia = e.getMessage();
+        }
+
+        if (radarAdvertencia != null) {
+            return ResponseEntity.ok(Map.of(
+                    "mensaje", "Proyecto aprobado exitosamente. Talent Radar no pudo completarse.",
+                    "data", ApiMapper.toProyectoResponse(proyecto),
+                    "radarAdvertencia", radarAdvertencia
+            ));
+        }
+
         return ResponseEntity.ok(Map.of(
                 "mensaje", "Proyecto aprobado exitosamente",
                 "data", ApiMapper.toProyectoResponse(proyecto)
