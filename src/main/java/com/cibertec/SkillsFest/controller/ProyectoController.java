@@ -144,7 +144,17 @@ public class ProyectoController {
 
     @PostMapping("/{id}/analizar-radar")
     public ResponseEntity<?> analizarRadar(@PathVariable Long id) {
-        talentRadarService.analizarProyecto(id);
+        try {
+            talentRadarService.analizarProyecto(id);
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of(
+                    "mensaje", "El proyecto fue procesado, pero Talent Radar no pudo completarse",
+                    "proyectoId", id,
+                    "estadoRadar", "ERROR",
+                    "detalle", e.getMessage()
+            ));
+        }
+
         return ResponseEntity.ok(Map.of(
                 "mensaje", "Análisis de radar ejecutado correctamente",
                 "proyectoId", id
