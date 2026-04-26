@@ -16,6 +16,7 @@ import com.cibertec.SkillsFest.repository.IUsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -37,6 +38,7 @@ public class AppDashboardController {
     private final IPortafolioPublicoRepository portafolioRepository;
 
     @GetMapping("/dashboard")
+    @Transactional(readOnly = true)
     public ResponseEntity<AppDashboardResponse> obtenerDashboard(Authentication authentication) {
 
         String email = authentication.getName();

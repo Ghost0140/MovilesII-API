@@ -8,6 +8,7 @@ import com.cibertec.SkillsFest.repository.IUsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -53,6 +54,7 @@ public class AppPortafolioController {
     }
 
     @GetMapping("/mi-portafolio")
+    @Transactional(readOnly = true)
     public ResponseEntity<AppPortafolioResponse> obtenerMiPortafolio(Authentication authentication) {
         Usuario usuario = obtenerUsuarioAutenticado(authentication);
 
