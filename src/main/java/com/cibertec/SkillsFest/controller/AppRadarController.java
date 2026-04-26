@@ -120,7 +120,7 @@ public class AppRadarController {
                 .radarTesting(valorOrZero(portafolio != null ? portafolio.getRadarTesting() : null))
 
                 .commitsUsuario(ultimaContribucion.getTotalCommits())
-                .lineasUsuario(ultimaContribucion.getTotalLineas())
+                .lineasUsuario(intOrZero(ultimaContribucion.getTotalLineas()))
 
                 .scoreFrontend(valorOrZero(ultimaContribucion.getScoreFrontend()))
                 .scoreBackend(valorOrZero(ultimaContribucion.getScoreBackend()))
@@ -207,7 +207,7 @@ public class AppRadarController {
                 .contribucionesGeneradas(repositorio.getContribucionesGeneradas())
                 .ultimoAnalisis(repositorio.getUltimoAnalisis())
                 .commitsUsuario(contribucion != null ? contribucion.getTotalCommits() : 0)
-                .lineasUsuario(contribucion != null ? contribucion.getTotalLineas() : 0)
+                .lineasUsuario(contribucion != null ? intOrZero(contribucion.getTotalLineas()) : 0)
                 .scoreFrontend(valorOrZero(contribucion != null ? contribucion.getScoreFrontend() : null))
                 .scoreBackend(valorOrZero(contribucion != null ? contribucion.getScoreBackend() : null))
                 .scoreBd(valorOrZero(contribucion != null ? contribucion.getScoreBd() : null))
@@ -219,6 +219,10 @@ public class AppRadarController {
 
     private BigDecimal valorOrZero(BigDecimal valor) {
         return valor != null ? valor : BigDecimal.ZERO;
+    }
+
+    private Integer intOrZero(Integer valor) {
+        return valor != null ? valor : 0;
     }
 
     private String generarMensaje(String estado) {
