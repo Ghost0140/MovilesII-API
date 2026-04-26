@@ -79,6 +79,7 @@ public class AppProyectoController {
             Authentication authentication
     ) {
         Usuario usuario = obtenerUsuarioAutenticado(authentication);
+        validarDatosProyecto(request);
 
         Evento evento = eventoRepository.findById(request.getEventoId())
                 .orElseThrow(() -> new RuntimeException("Evento no encontrado"));
@@ -86,7 +87,12 @@ public class AppProyectoController {
         validarEventoParaCrearProyecto(evento);
 
         if (Boolean.TRUE.equals(evento.getPermiteEquipos())) {
-            throw new RuntimeException("Este evento permite equipos. Para proyectos grupales se debe crear o seleccionar un equipo");
+            Equipo equipo = resolverEquipoParaProyectoGrupal(request, usuario, evento);
+            return ResponseEntity.ok(crearProyectoParaEquipo(equipo, request));
+        }
+
+        if (request.getEquipoId() != null) {
+            throw new RuntimeException("Este evento es individual y no permite proyectos por equipo");
         }
 
         Proyecto proyecto = new Proyecto();
@@ -95,7 +101,7 @@ public class AppProyectoController {
         proyecto.setEquipo(null);
 
         proyecto.setTitulo(request.getTitulo());
-        proyecto.setResumen(request.getResumen());
+        proyecto.setResumen(request.getResumen() != null ? request.getResumen() : "");
         proyecto.setDescripcion(request.getDescripcion());
 
         String repoUrl = normalizarRepositorioUrl(request.getRepositorioUrl());
@@ -204,6 +210,67 @@ public class AppProyectoController {
         if (!"PUBLICADO".equalsIgnoreCase(evento.getEstado()) &&
                 !"EN_CURSO".equalsIgnoreCase(evento.getEstado())) {
             throw new RuntimeException("El evento no está habilitado para recibir proyectos");
+        }
+    }
+
+    private void validarDatosProyecto(AppProyectoRequest request) {
+        if (request == null) {
+            throw new RuntimeException("Debes enviar los datos del proyecto");
+        }
+
+        if (request.getEventoId() == null) {
+            throw new RuntimeException("Selecciona un evento");
+        }
+
+        if (request.getTitulo() == null || request.getTitulo().isBlank()) {
+            throw new RuntimeException("Ingresa el título del proyecto");
+        }
+
+        if (request.getRepositorioUrl() == null || request.getRepositorioUrl().isBlank()) {
+            throw new RuntimeException("Ingresa la URL del repositorio");
+        }
+    }
+
+    private Equipo resolverEquipoParaProyectoGrupal(AppProyectoRequest request, Usuario usuario, Evento evento) {
+        if (request.getEquipoId() != null) {
+            Equipo equipo = equipoRepository.findById(request.getEquipoId())
+                    .orElseThrow(() -> new RuntimeException("Equipo no encontrado"));
+
+            validarEquipoParaCrearProyecto(equipo, usuario, evento);
+            return equipo;
+        }
+
+        List<Equipo> equiposAprobadosDelLider = equipoRepository.findByEventoIdAndEstado(evento.getId(), "APROBADO")
+                .stream()
+                .filter(e -> e.getLider() != null && Objects.equals(e.getLider().getId(), usuario.getId()))
+                .toList();
+
+        if (equiposAprobadosDelLider.isEmpty()) {
+            throw new RuntimeException("Para este evento debes crear un equipo y esperar su aprobación antes de registrar el proyecto");
+        }
+
+        if (equiposAprobadosDelLider.size() > 1) {
+            throw new RuntimeException("Tienes más de un equipo aprobado para este evento. Selecciona el equipo antes de crear el proyecto");
+        }
+
+        return equiposAprobadosDelLider.get(0);
+    }
+
+    private void validarEquipoParaCrearProyecto(Equipo equipo, Usuario usuario, Evento evento) {
+        if ("ELIMINADO".equalsIgnoreCase(equipo.getEstado())) {
+            throw new RuntimeException("Equipo no disponible");
+        }
+
+        if (equipo.getEvento() == null || !Objects.equals(equipo.getEvento().getId(), evento.getId())) {
+            throw new RuntimeException("El equipo no pertenece al evento seleccionado");
+        }
+
+        if (equipo.getLider() == null || !Objects.equals(equipo.getLider().getId(), usuario.getId())) {
+            throw new RuntimeException("Solo el líder del equipo puede crear el proyecto");
+        }
+
+        if (!"APROBADO".equalsIgnoreCase(equipo.getEstado())) {
+            throw new RuntimeException("El equipo debe estar aprobado antes de crear un proyecto");
         }
     }
 
@@ -323,21 +390,10 @@ public class AppProyectoController {
             Authentication authentication
     ) {
         Usuario usuario = obtenerUsuarioAutenticado(authentication);
+        validarDatosProyecto(request);
 
         Equipo equipo = equipoRepository.findById(equipoId)
                 .orElseThrow(() -> new RuntimeException("Equipo no encontrado"));
-
-        if ("ELIMINADO".equalsIgnoreCase(equipo.getEstado())) {
-            throw new RuntimeException("Equipo no disponible");
-        }
-
-        if (equipo.getLider() == null || !Objects.equals(equipo.getLider().getId(), usuario.getId())) {
-            throw new RuntimeException("Solo el líder del equipo puede crear el proyecto");
-        }
-
-        if (!"APROBADO".equalsIgnoreCase(equipo.getEstado())) {
-            throw new RuntimeException("El equipo debe estar aprobado antes de crear un proyecto");
-        }
 
         Evento evento = equipo.getEvento();
 
@@ -346,10 +402,17 @@ public class AppProyectoController {
         }
 
         validarEventoParaCrearProyecto(evento);
+        validarEquipoParaCrearProyecto(equipo, usuario, evento);
 
         if (!Boolean.TRUE.equals(evento.getPermiteEquipos())) {
             throw new RuntimeException("Este evento es individual y no permite proyectos por equipo");
         }
+
+        return ResponseEntity.ok(crearProyectoParaEquipo(equipo, request));
+    }
+
+    private AppProyectoResponse crearProyectoParaEquipo(Equipo equipo, AppProyectoRequest request) {
+        Evento evento = equipo.getEvento();
 
         boolean yaTieneProyecto = proyectoRepository.existsByEquipoIdAndEstadoNot(
                 equipo.getId(),
@@ -366,7 +429,7 @@ public class AppProyectoController {
         proyecto.setUsuario(null);
 
         proyecto.setTitulo(request.getTitulo());
-        proyecto.setResumen(request.getResumen());
+        proyecto.setResumen(request.getResumen() != null ? request.getResumen() : "");
         proyecto.setDescripcion(request.getDescripcion());
 
         String repoUrl = normalizarRepositorioUrl(request.getRepositorioUrl());
@@ -381,7 +444,7 @@ public class AppProyectoController {
 
         Proyecto guardado = proyectoRepository.save(proyecto);
 
-        return ResponseEntity.ok(mapProyecto(guardado));
+        return mapProyecto(guardado);
     }
 
     @GetMapping("/historial")

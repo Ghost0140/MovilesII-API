@@ -11,4 +11,5 @@ public class AppEquipoRequest {
 
     private Long eventoId;
     private String nombre;
+    private java.util.List<Long> miembrosIds;
 }

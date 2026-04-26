@@ -10,6 +10,7 @@ import lombok.*;
 public class AppProyectoRequest {
 
     private Long eventoId;
+    private Long equipoId;
 
     private String titulo;
     private String resumen;

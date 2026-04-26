@@ -9,4 +9,5 @@ public interface IEquipoRepository extends JpaRepository<Equipo, Long> {
     List<Equipo> findByEventoIdAndEstadoNot(Long eventoId, String estado);
     List<Equipo> findByLiderIdAndEstadoNot(Long liderId, String estado);
     List<Equipo> findByEventoIdAndEstado(Long eventoId, String estado);
+    boolean existsByEventoIdAndLiderIdAndEstadoNot(Long eventoId, Long liderId, String estado);
 }

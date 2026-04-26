@@ -12,6 +12,7 @@ public interface IUsuarioRepository extends JpaRepository<Usuario, Long> {
     Optional<Usuario> findByEmail(String email);
     Optional<Usuario> findByNumeroDocumento(String numeroDocumento);
     Optional<Usuario> findByGithubUsername(String githubUsername);
+    Optional<Usuario> findByCodigoEstudiante(String codigoEstudiante);
 
     List<Usuario> findBySedeIdAndActivoTrue(Long sedeId);
     Page<Usuario> findBySedeIdAndActivoTrue(Long sedeId, Pageable pageable);
