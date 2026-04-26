@@ -3,6 +3,7 @@ package com.cibertec.SkillsFest.dto.app;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -25,6 +26,11 @@ public class AppEquipoResponse {
     private String liderNombre;
 
     private String miembros;
+    private List<Long> miembrosIds;
+    private List<String> miembrosNombres;
+    private Integer cantidadMiembros;
+    private Integer maxMiembrosEquipo;
+    private Boolean esLider;
 
     private LocalDateTime creadoEn;
 }
