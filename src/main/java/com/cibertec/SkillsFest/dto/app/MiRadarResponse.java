@@ -12,6 +12,10 @@ import java.time.LocalDateTime;
 @Builder
 public class MiRadarResponse {
 
+    private Long proyectoId;
+    private String proyectoTitulo;
+    private String eventoNombre;
+
     private Long usuarioId;
     private String nombres;
     private String apellidos;
