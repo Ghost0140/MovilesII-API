@@ -153,6 +153,10 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
 
             repositorio = repositorioRepository.save(repositorio);
 
+            if (proyecto.getEvento() != null && contribucionesGeneradas > 0) {
+                generarRankingsPorArea(proyecto.getEvento().getId());
+            }
+
             return RadarAnalysisResponse.builder()
                     .proyectoId(proyecto.getId())
                     .repositorioId(repositorio.getId())
@@ -181,7 +185,12 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
 
     @Override
     public void generarRankingsPorArea(Long eventoId) {
-        List<Proyecto> proyectos = proyectoRepository.findByEventoIdAndEstadoNot(eventoId, "ELIMINADO");
+        List<Proyecto> proyectos = proyectoRepository.findByEventoIdAndEstadoNot(eventoId, "ELIMINADO")
+                .stream()
+                .filter(p -> "APROBADO".equalsIgnoreCase(p.getEstado()))
+                .toList();
+
+        rankingAreaRepository.deleteAll(rankingAreaRepository.findByEventoId(eventoId));
 
         if (proyectos.isEmpty()) {
             return;
@@ -191,15 +200,16 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
                 .map(Proyecto::getId)
                 .toList();
 
-        List<Repositorio> repositorios = repositorioRepository.findByProyectoIdIn(proyectoIds);
+        List<Repositorio> repositorios = repositorioRepository.findByProyectoIdIn(proyectoIds)
+                .stream()
+                .filter(r -> "COMPLETADO".equalsIgnoreCase(r.getEstadoAnalisis()))
+                .toList();
 
         List<Contribucion> contribuciones = new ArrayList<>();
 
         for (Repositorio repo : repositorios) {
             contribuciones.addAll(contribucionRepository.findByRepositorioId(repo.getId()));
         }
-
-        rankingAreaRepository.deleteAll(rankingAreaRepository.findByEventoId(eventoId));
 
         Evento evento = proyectos.get(0).getEvento();
 
@@ -208,6 +218,7 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
         guardarRankingArea(evento, contribuciones, "BD");
         guardarRankingArea(evento, contribuciones, "MOBILE");
         guardarRankingArea(evento, contribuciones, "TESTING");
+        guardarRankingArea(evento, contribuciones, "FULLSTACK");
     }
 
     @Override
@@ -292,6 +303,7 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
                 case "BD" -> valor(c.getScoreBd());
                 case "MOBILE" -> valor(c.getScoreMobile());
                 case "TESTING" -> valor(c.getScoreTesting());
+                case "FULLSTACK" -> promedioScoresContribucion(c);
                 default -> 0.0;
             };
 
@@ -300,6 +312,7 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
 
         List<Map.Entry<Long, Double>> ordenados = scorePorUsuario.entrySet()
                 .stream()
+                .filter(e -> e.getValue() > 0.0)
                 .sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
                 .toList();
 
@@ -438,6 +451,21 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
                 .orElse(0.0);
     }
 
+    private double promedioScoresContribucion(Contribucion c) {
+        return List.of(
+                        valor(c.getScoreFrontend()),
+                        valor(c.getScoreBackend()),
+                        valor(c.getScoreBd()),
+                        valor(c.getScoreMobile()),
+                        valor(c.getScoreTesting())
+                )
+                .stream()
+                .mapToDouble(Double::doubleValue)
+                .filter(score -> score > 0.0)
+                .average()
+                .orElse(0.0);
+    }
+
     private String generarTecnologiasDetectadas(Map<String, Double> lenguajes, Set<String> pistasRepositorio) {
         Map<String, Object> resultado = new HashMap<>();
 
@@ -456,8 +484,115 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
 
         resultado.put("lenguajes", lenguajesDetectados);
         resultado.put("pistasRepositorio", pistasRepositorio);
+        resultado.put("areas", generarDetalleAreas(lenguajes, pistasRepositorio));
+        resultado.put("resumen", generarResumenTecnico(lenguajes, pistasRepositorio));
 
         return escribirJson(resultado);
+    }
+
+    private List<Map<String, Object>> generarDetalleAreas(Map<String, Double> lenguajes, Set<String> pistasRepositorio) {
+        return List.of(
+                detalleArea(
+                        "FRONTEND",
+                        "Interfaz y experiencia de usuario",
+                        scorePorLenguajes(lenguajes, "javascript", "typescript", "html", "css", "react", "vue"),
+                        pistasRepositorio,
+                        Map.of(
+                                "react", "Uso de React para construir componentes de interfaz.",
+                                "vite", "Proyecto preparado con Vite para desarrollo frontend rápido.",
+                                "vue", "Uso de Vue para construir vistas reactivas.",
+                                "angular", "Uso de Angular como framework de frontend.",
+                                "frontend-structure", "Estructura del repositorio orientada a frontend."
+                        )
+                ),
+                detalleArea(
+                        "BACKEND",
+                        "Servicios, API y lógica de servidor",
+                        scorePorLenguajes(lenguajes, "java", "python", "c#", "node", "php", "go", "spring"),
+                        pistasRepositorio,
+                        Map.of(
+                                "spring", "Uso de Spring Boot para exponer servicios backend.",
+                                "maven", "Gestión de dependencias y build con Maven.",
+                                "gradle", "Gestión de build con Gradle.",
+                                "backend-structure", "Estructura del repositorio orientada a servicios backend.",
+                                "node-backend", "Uso de Node.js para lógica de servidor."
+                        )
+                ),
+                detalleArea(
+                        "BD",
+                        "Persistencia, SQL y modelo de datos",
+                        scorePorLenguajes(lenguajes, "sql", "plsql", "mysql", "postgres"),
+                        pistasRepositorio,
+                        Map.of(
+                                "sql-files", "Archivos SQL detectados para definición o carga de datos.",
+                                "migrations", "Migraciones detectadas para evolución del esquema.",
+                                "database-folder", "Carpeta o dependencias relacionadas con base de datos."
+                        )
+                ),
+                detalleArea(
+                        "MOBILE",
+                        "Aplicación móvil y cliente nativo",
+                        scorePorLenguajes(lenguajes, "kotlin", "swift", "dart", "react native", "android"),
+                        pistasRepositorio,
+                        Map.of(
+                                "android", "Estructura o configuración asociada a Android.",
+                                "ios", "Estructura o configuración asociada a iOS.",
+                                "flutter", "Uso de Flutter para desarrollo multiplataforma.",
+                                "react-native", "Uso de React Native para desarrollo móvil."
+                        )
+                ),
+                detalleArea(
+                        "TESTING",
+                        "Pruebas y validación automatizada",
+                        scorePorLenguajes(lenguajes, "jest", "junit", "pytest", "cypress", "gherkin"),
+                        pistasRepositorio,
+                        Map.of(
+                                "tests", "Carpetas o estructura de pruebas detectadas.",
+                                "jest", "Uso de Jest para pruebas automatizadas.",
+                                "cypress", "Uso de Cypress para pruebas end-to-end.",
+                                "junit", "Uso de JUnit o Mockito para pruebas backend."
+                        )
+                )
+        );
+    }
+
+    private Map<String, Object> detalleArea(
+            String area,
+            String descripcion,
+            double scoreLenguajes,
+            Set<String> pistasRepositorio,
+            Map<String, String> usosPorPista
+    ) {
+        List<String> evidencias = usosPorPista.entrySet()
+                .stream()
+                .filter(e -> pistasRepositorio.contains(e.getKey()))
+                .map(Map.Entry::getValue)
+                .toList();
+
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("area", area);
+        detalle.put("descripcion", descripcion);
+        detalle.put("scoreLenguajes", redondear(scoreLenguajes));
+        detalle.put("evidencias", evidencias);
+        detalle.put("usoDetectado", evidencias.isEmpty()
+                ? "No se detectaron señales estructurales fuertes para esta área."
+                : String.join(" ", evidencias));
+        return detalle;
+    }
+
+    private String generarResumenTecnico(Map<String, Double> lenguajes, Set<String> pistasRepositorio) {
+        String lenguajePrincipal = lenguajes.entrySet()
+                .stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .orElse("tecnologías no identificadas");
+
+        if (pistasRepositorio.isEmpty()) {
+            return "El repositorio usa principalmente " + lenguajePrincipal + ". Aún no se detectaron estructuras específicas.";
+        }
+
+        return "El repositorio usa principalmente " + lenguajePrincipal +
+                " y contiene señales como " + String.join(", ", pistasRepositorio) + ".";
     }
 
     private Map<String, Double> obtenerLenguajes(String owner, String repo) {

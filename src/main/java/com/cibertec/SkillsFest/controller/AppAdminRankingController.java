@@ -66,6 +66,7 @@ public class AppAdminRankingController {
         int bd = contarPorArea(rankings, "BD");
         int mobile = contarPorArea(rankings, "MOBILE");
         int testing = contarPorArea(rankings, "TESTING");
+        int fullstack = contarPorArea(rankings, "FULLSTACK");
 
         String estado = rankings.isEmpty() ? "PENDIENTE" : "GENERADO";
         String mensaje = rankings.isEmpty()
@@ -81,6 +82,7 @@ public class AppAdminRankingController {
                 .rankingsBd(bd)
                 .rankingsMobile(mobile)
                 .rankingsTesting(testing)
+                .rankingsFullstack(fullstack)
                 .estado(estado)
                 .mensaje(mensaje)
                 .build();

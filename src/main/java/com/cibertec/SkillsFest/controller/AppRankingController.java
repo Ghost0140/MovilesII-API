@@ -3,6 +3,7 @@ package com.cibertec.SkillsFest.controller;
 import com.cibertec.SkillsFest.dto.app.AppRankingAreaResponse;
 import com.cibertec.SkillsFest.entity.RankingArea;
 import com.cibertec.SkillsFest.repository.IRankingAreaRepository;
+import com.cibertec.SkillsFest.service.ITalentRadarService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +19,7 @@ import java.util.Map;
 public class AppRankingController {
 
     private final IRankingAreaRepository rankingAreaRepository;
+    private final ITalentRadarService talentRadarService;
 
     @GetMapping("/areas")
     public ResponseEntity<?> listarAreasDisponibles() {
@@ -40,9 +42,14 @@ public class AppRankingController {
     ) {
         String areaNormalizada = area.toUpperCase();
 
-        List<AppRankingAreaResponse> rankings = rankingAreaRepository
-                .findByEventoIdAndArea(eventoId, areaNormalizada)
-                .stream()
+        List<RankingArea> rankingsArea = rankingAreaRepository.findByEventoIdAndArea(eventoId, areaNormalizada);
+
+        if (rankingsArea.isEmpty()) {
+            talentRadarService.generarRankingsPorArea(eventoId);
+            rankingsArea = rankingAreaRepository.findByEventoIdAndArea(eventoId, areaNormalizada);
+        }
+
+        List<AppRankingAreaResponse> rankings = rankingsArea.stream()
                 .sorted(Comparator.comparing(RankingArea::getPosicion))
                 .map(this::mapRanking)
                 .toList();

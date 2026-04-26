@@ -18,6 +18,7 @@ public class AppRankingStatusResponse {
     private Integer rankingsBd;
     private Integer rankingsMobile;
     private Integer rankingsTesting;
+    private Integer rankingsFullstack;
 
     private String estado;
     private String mensaje;
