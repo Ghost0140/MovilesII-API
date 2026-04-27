@@ -16,6 +16,7 @@ import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -50,6 +51,8 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
         if (proyecto.getRepositorioUrl() == null || proyecto.getRepositorioUrl().isBlank()) {
             throw new RuntimeException("El proyecto no tiene URL de repositorio");
         }
+
+        validarParticipantesConGithub(proyecto);
 
         Repositorio repositorio = repositorioRepository.findByProyectoId(proyectoId)
                 .orElseGet(Repositorio::new);
@@ -105,7 +108,8 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
                         .findByRepositorioIdAndUsuarioId(repositorio.getId(), usuario.getId())
                         .orElseGet(Contribucion::new);
 
-                double factor = totalCommits > 0 ? ((double) contributions / totalCommits) : 0.0;
+                double factorParticipacion = totalCommits > 0 ? ((double) contributions / totalCommits) : 0.0;
+                double factor = Math.sqrt(factorParticipacion);
                 contribucion.setRepositorio(repositorio);
                 contribucion.setUsuario(usuario);
                 contribucion.setTotalCommits(contributions);
@@ -428,6 +432,56 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
         scores.put("TESTING", Math.min(testing, 100.0));
 
         return scores;
+    }
+
+    private void validarParticipantesConGithub(Proyecto proyecto) {
+        if (proyecto.getEquipo() == null) {
+            validarGithubRegistrado(proyecto.getUsuario());
+            return;
+        }
+
+        Equipo equipo = proyecto.getEquipo();
+        validarGithubRegistrado(equipo.getLider());
+
+        parseMiembros(equipo.getMiembros()).stream()
+                .filter(id -> equipo.getLider() == null || !Objects.equals(id, equipo.getLider().getId()))
+                .map(id -> usuarioRepository.findById(id)
+                        .orElseThrow(() -> new RuntimeException("Uno de los miembros del equipo no existe")))
+                .forEach(this::validarGithubRegistrado);
+    }
+
+    private void validarGithubRegistrado(Usuario usuario) {
+        if (usuario == null || usuario.getGithubUsername() == null || usuario.getGithubUsername().isBlank()) {
+            throw new RuntimeException("El alumno debe registrar su usuario de GitHub antes de ejecutar Talent Radar");
+        }
+    }
+
+    private List<Long> parseMiembros(String miembros) {
+        if (miembros == null || miembros.isBlank()) {
+            return List.of();
+        }
+
+        String normalizado = miembros
+                .replace("[", "")
+                .replace("]", "")
+                .replace("\"", "")
+                .replace(" ", "");
+
+        if (normalizado.isBlank()) {
+            return List.of();
+        }
+
+        return Arrays.stream(normalizado.split(","))
+                .filter(id -> !id.isBlank())
+                .map(id -> {
+                    try {
+                        return Long.parseLong(id);
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private double scorePorLenguajes(Map<String, Double> lenguajes, String... targets) {
@@ -847,12 +901,54 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
                 throw new RuntimeException("GitHub API respondió 401 UNAUTHORIZED. Revisa la variable GITHUB_TOKEN en Railway: el token puede estar vencido, revocado o mal copiado.");
             }
 
+            if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS || esRateLimitGitHub(e)) {
+                throw new RuntimeException(mensajeRateLimit(e));
+            }
+
             throw new RuntimeException("GitHub API respondió "
                     + e.getStatusCode()
                     + ": "
                     + e.getResponseBodyAsString());
         } catch (Exception e) {
             throw new RuntimeException("Error consumiendo GitHub API: " + e.getMessage());
+        }
+    }
+
+    private boolean esRateLimitGitHub(HttpStatusCodeException e) {
+        HttpHeaders headers = e.getResponseHeaders();
+        if (headers == null) {
+            return false;
+        }
+
+        String remaining = headers.getFirst("X-RateLimit-Remaining");
+        return e.getStatusCode() == HttpStatus.FORBIDDEN && "0".equals(remaining);
+    }
+
+    private String mensajeRateLimit(HttpStatusCodeException e) {
+        int minutos = minutosParaReintentar(e.getResponseHeaders());
+        return "Nuestros servidores de análisis están a máxima capacidad. Intenta de nuevo en "
+                + minutos
+                + " minuto"
+                + (minutos == 1 ? "" : "s")
+                + ".";
+    }
+
+    private int minutosParaReintentar(HttpHeaders headers) {
+        if (headers == null) {
+            return 15;
+        }
+
+        String reset = headers.getFirst("X-RateLimit-Reset");
+        if (reset == null || reset.isBlank()) {
+            return 15;
+        }
+
+        try {
+            long resetEpoch = Long.parseLong(reset);
+            long segundos = Math.max(60, resetEpoch - Instant.now().getEpochSecond());
+            return (int) Math.ceil(segundos / 60.0);
+        } catch (NumberFormatException e) {
+            return 15;
         }
     }
 

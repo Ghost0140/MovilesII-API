@@ -31,6 +31,8 @@ public class AppEquipoResponse {
     private Integer cantidadMiembros;
     private Integer maxMiembrosEquipo;
     private Boolean esLider;
+    private Boolean congelado;
+    private Boolean puedeEditar;
 
     private LocalDateTime creadoEn;
 }

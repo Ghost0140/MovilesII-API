@@ -9,6 +9,7 @@ import com.cibertec.SkillsFest.entity.Proyecto;
 import com.cibertec.SkillsFest.entity.Repositorio;
 import com.cibertec.SkillsFest.entity.Usuario;
 import com.cibertec.SkillsFest.entity.Equipo;
+import com.cibertec.SkillsFest.exception.ForbiddenException;
 import com.cibertec.SkillsFest.repository.IEquipoRepository;
 import com.cibertec.SkillsFest.repository.IEventoRepository;
 import com.cibertec.SkillsFest.repository.IProyectoRepository;
@@ -80,6 +81,7 @@ public class AppProyectoController {
     ) {
         Usuario usuario = obtenerUsuarioAutenticado(authentication);
         validarDatosProyecto(request);
+        validarGithubRegistrado(usuario);
 
         Evento evento = eventoRepository.findById(request.getEventoId())
                 .orElseThrow(() -> new RuntimeException("Evento no encontrado"));
@@ -131,9 +133,11 @@ public class AppProyectoController {
                 .orElseThrow(() -> new RuntimeException("Proyecto no encontrado"));
 
         validarProyectoDisponibleYPropio(proyecto, usuario);
+        validarUsuarioPuedeGestionarProyecto(proyecto, usuario);
 
-        if ("APROBADO".equalsIgnoreCase(proyecto.getEstado())) {
-            throw new RuntimeException("No se puede cambiar el repositorio de un proyecto aprobado");
+        if ("APROBADO".equalsIgnoreCase(proyecto.getEstado()) ||
+                "ENVIADO".equalsIgnoreCase(proyecto.getEstado())) {
+            throw new RuntimeException("No se puede cambiar el repositorio de un proyecto enviado o aprobado");
         }
 
         String repoUrl = normalizarRepositorioUrl(request.getRepositorioUrl());
@@ -162,10 +166,14 @@ public class AppProyectoController {
                 .orElseThrow(() -> new RuntimeException("Proyecto no encontrado"));
 
         validarProyectoDisponibleYPropio(proyecto, usuario);
+        validarUsuarioPuedeGestionarProyecto(proyecto, usuario);
+        validarGithubRegistrado(usuario);
 
         if (proyecto.getRepositorioUrl() == null || proyecto.getRepositorioUrl().isBlank()) {
             throw new RuntimeException("Debe registrar un repositorio antes de enviar el proyecto");
         }
+
+        validarParticipantesConGithub(proyecto);
 
         if ("APROBADO".equalsIgnoreCase(proyecto.getEstado())) {
             throw new RuntimeException("El proyecto ya fue aprobado");
@@ -266,7 +274,7 @@ public class AppProyectoController {
         }
 
         if (equipo.getLider() == null || !Objects.equals(equipo.getLider().getId(), usuario.getId())) {
-            throw new RuntimeException("Solo el líder del equipo puede crear el proyecto");
+            throw new ForbiddenException("Solo el líder del equipo puede crear el proyecto");
         }
 
         if (!"APROBADO".equalsIgnoreCase(equipo.getEstado())) {
@@ -282,6 +290,45 @@ public class AppProyectoController {
         if (!perteneceAlUsuario(proyecto, usuario)) {
             throw new RuntimeException("No tienes permisos para este proyecto");
         }
+    }
+
+    private void validarUsuarioPuedeGestionarProyecto(Proyecto proyecto, Usuario usuario) {
+        if (proyecto.getEquipo() == null) {
+            if (proyecto.getUsuario() != null && Objects.equals(proyecto.getUsuario().getId(), usuario.getId())) {
+                return;
+            }
+
+            throw new ForbiddenException("Solo el propietario del proyecto puede realizar esta acción");
+        }
+
+        Equipo equipo = proyecto.getEquipo();
+        if (equipo.getLider() != null && Objects.equals(equipo.getLider().getId(), usuario.getId())) {
+            return;
+        }
+
+        throw new ForbiddenException("Solo el líder del equipo puede enviar o modificar el proyecto");
+    }
+
+    private void validarGithubRegistrado(Usuario usuario) {
+        if (usuario == null || usuario.getGithubUsername() == null || usuario.getGithubUsername().isBlank()) {
+            throw new RuntimeException("Registra tu usuario de GitHub antes de crear o enviar proyectos para que Talent Radar pueda analizar tu participación");
+        }
+    }
+
+    private void validarParticipantesConGithub(Proyecto proyecto) {
+        if (proyecto.getEquipo() == null) {
+            validarGithubRegistrado(proyecto.getUsuario());
+            return;
+        }
+
+        Equipo equipo = proyecto.getEquipo();
+        validarGithubRegistrado(equipo.getLider());
+
+        parseMiembros(equipo.getMiembros()).stream()
+                .filter(id -> equipo.getLider() == null || !Objects.equals(id, equipo.getLider().getId()))
+                .map(id -> usuarioRepository.findById(id)
+                        .orElseThrow(() -> new RuntimeException("Uno de los miembros del equipo no existe")))
+                .forEach(this::validarGithubRegistrado);
     }
 
     private boolean perteneceAlUsuario(Proyecto proyecto, Usuario usuario) {
@@ -303,17 +350,35 @@ public class AppProyectoController {
     }
 
     private boolean usuarioEstaEnMiembros(String miembros, Long usuarioId) {
-        if (miembros == null || miembros.isBlank() || usuarioId == null) {
-            return false;
+        return parseMiembros(miembros).contains(usuarioId);
+    }
+
+    private List<Long> parseMiembros(String miembros) {
+        if (miembros == null || miembros.isBlank()) {
+            return List.of();
         }
 
         String normalizado = miembros
                 .replace("[", "")
                 .replace("]", "")
+                .replace("\"", "")
                 .replace(" ", "");
 
+        if (normalizado.isBlank()) {
+            return List.of();
+        }
+
         return Arrays.stream(normalizado.split(","))
-                .anyMatch(id -> id.equals(usuarioId.toString()));
+                .filter(id -> !id.isBlank())
+                .map(id -> {
+                    try {
+                        return Long.parseLong(id);
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private void validarRepositorioDuplicado(String repoUrl, Long proyectoIdActual) {
@@ -413,6 +478,12 @@ public class AppProyectoController {
 
     private AppProyectoResponse crearProyectoParaEquipo(Equipo equipo, AppProyectoRequest request) {
         Evento evento = equipo.getEvento();
+        validarGithubRegistrado(equipo.getLider());
+        parseMiembros(equipo.getMiembros()).stream()
+                .filter(id -> equipo.getLider() == null || !Objects.equals(id, equipo.getLider().getId()))
+                .map(id -> usuarioRepository.findById(id)
+                        .orElseThrow(() -> new RuntimeException("Uno de los miembros del equipo no existe")))
+                .forEach(this::validarGithubRegistrado);
 
         boolean yaTieneProyecto = proyectoRepository.existsByEquipoIdAndEstadoNot(
                 equipo.getId(),

@@ -5,9 +5,13 @@ import com.cibertec.SkillsFest.dto.app.AppEquipoResponse;
 import com.cibertec.SkillsFest.dto.app.AppEquipoMiembroRequest;
 import com.cibertec.SkillsFest.entity.Equipo;
 import com.cibertec.SkillsFest.entity.Evento;
+import com.cibertec.SkillsFest.entity.Notificacion;
 import com.cibertec.SkillsFest.entity.Usuario;
+import com.cibertec.SkillsFest.exception.ForbiddenException;
 import com.cibertec.SkillsFest.repository.IEquipoRepository;
 import com.cibertec.SkillsFest.repository.IEventoRepository;
+import com.cibertec.SkillsFest.repository.INotificacionRepository;
+import com.cibertec.SkillsFest.repository.IProyectoRepository;
 import com.cibertec.SkillsFest.repository.IUsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -32,6 +37,8 @@ public class AppEquipoController {
     private final IEquipoRepository equipoRepository;
     private final IEventoRepository eventoRepository;
     private final IUsuarioRepository usuarioRepository;
+    private final IProyectoRepository proyectoRepository;
+    private final INotificacionRepository notificacionRepository;
 
     @GetMapping("/mis-equipos")
     public ResponseEntity<List<AppEquipoResponse>> listarMisEquipos(Authentication authentication) {
@@ -59,6 +66,7 @@ public class AppEquipoController {
 
         validarEventoParaEquipo(evento);
         validarNombreEquipo(request.getNombre());
+        validarGithubRegistrado(usuario);
         validarUsuarioPuedeInscribirseEnEvento(usuario, evento, null);
 
         List<Long> miembrosIds = normalizarMiembros(request.getMiembrosIds(), usuario.getId());
@@ -74,6 +82,7 @@ public class AppEquipoController {
         equipo.setEstado("PENDIENTE");
 
         Equipo guardado = equipoRepository.save(equipo);
+        notificarMiembrosInvitados(guardado, usuario, miembrosIds);
 
         return ResponseEntity.ok(mapEquipo(guardado, usuario));
     }
@@ -114,6 +123,7 @@ public class AppEquipoController {
 
         Usuario nuevoMiembro = buscarUsuarioParaAgregar(request);
         validarMiembroAgregable(equipo, nuevoMiembro);
+        validarGithubRegistrado(nuevoMiembro);
 
         List<Long> miembrosIds = parseMiembros(equipo.getMiembros());
         if (!miembrosIds.contains(equipo.getLider().getId())) {
@@ -130,6 +140,7 @@ public class AppEquipoController {
 
         equipo.setMiembros(toJsonArray(miembrosIds));
         Equipo actualizado = equipoRepository.save(equipo);
+        notificarMiembroAgregado(actualizado, usuario, nuevoMiembro);
 
         return ResponseEntity.ok(mapEquipo(actualizado, usuario));
     }
@@ -214,11 +225,15 @@ public class AppEquipoController {
         }
 
         if (equipo.getLider() == null || !Objects.equals(equipo.getLider().getId(), usuario.getId())) {
-            throw new RuntimeException("Solo el líder puede modificar los miembros del equipo");
+            throw new ForbiddenException("Solo el líder puede modificar los miembros del equipo");
         }
 
         if (!"PENDIENTE".equalsIgnoreCase(equipo.getEstado())) {
             throw new RuntimeException("Solo se pueden modificar miembros mientras el equipo está pendiente");
+        }
+
+        if (equipoCongeladoPorProyecto(equipo)) {
+            throw new RuntimeException("El equipo está congelado porque ya tiene un proyecto enviado o aprobado");
         }
     }
 
@@ -277,6 +292,7 @@ public class AppEquipoController {
                 validarMiembroAgregable(new EquipoParaValidacion(evento, lider).toEquipo(), miembro);
             }
 
+            validarGithubRegistrado(miembro);
             validarUsuarioPuedeInscribirseEnEvento(miembro, evento, equipoActualId);
         }
     }
@@ -319,6 +335,10 @@ public class AppEquipoController {
         boolean esLider = equipo.getLider() != null &&
                 usuarioActual != null &&
                 Objects.equals(equipo.getLider().getId(), usuarioActual.getId());
+        boolean congelado = equipoCongeladoPorProyecto(equipo);
+        boolean puedeEditar = esLider &&
+                "PENDIENTE".equalsIgnoreCase(equipo.getEstado()) &&
+                !congelado;
 
         return AppEquipoResponse.builder()
                 .id(equipo.getId())
@@ -336,8 +356,52 @@ public class AppEquipoController {
                 .cantidadMiembros(miembrosIds.size())
                 .maxMiembrosEquipo(equipo.getEvento() != null ? equipo.getEvento().getMaxMiembrosEquipo() : null)
                 .esLider(esLider)
+                .congelado(congelado)
+                .puedeEditar(puedeEditar)
                 .creadoEn(equipo.getCreadoEn())
                 .build();
+    }
+
+    private boolean equipoCongeladoPorProyecto(Equipo equipo) {
+        if (equipo == null || equipo.getId() == null) {
+            return false;
+        }
+
+        return proyectoRepository.existsByEquipoIdAndEstadoIn(
+                equipo.getId(),
+                List.of("ENVIADO", "APROBADO")
+        );
+    }
+
+    private void validarGithubRegistrado(Usuario usuario) {
+        if (usuario == null || usuario.getGithubUsername() == null || usuario.getGithubUsername().isBlank()) {
+            throw new RuntimeException("El estudiante debe registrar su usuario de GitHub antes de participar");
+        }
+    }
+
+    private void notificarMiembrosInvitados(Equipo equipo, Usuario lider, List<Long> miembrosIds) {
+        for (Long miembroId : miembrosIds) {
+            if (Objects.equals(miembroId, lider.getId())) {
+                continue;
+            }
+
+            usuarioRepository.findById(miembroId)
+                    .ifPresent(miembro -> notificarMiembroAgregado(equipo, lider, miembro));
+        }
+    }
+
+    private void notificarMiembroAgregado(Equipo equipo, Usuario lider, Usuario miembro) {
+        Notificacion notificacion = new Notificacion();
+        notificacion.setUsuario(miembro);
+        notificacion.setTipo("EQUIPO_INVITACION");
+        notificacion.setTitulo("Te agregaron a un equipo");
+        notificacion.setMensaje((lider.getNombres() + " " + lider.getApellidos()).trim()
+                + " te agregó al equipo " + equipo.getNombre()
+                + " para " + (equipo.getEvento() != null ? equipo.getEvento().getNombre() : "un evento") + ".");
+        notificacion.setLeida(false);
+        notificacion.setActivo(true);
+        notificacion.setCreadoEn(LocalDateTime.now());
+        notificacionRepository.save(notificacion);
     }
 
     private List<Long> normalizarMiembros(List<Long> miembrosIds, Long liderId) {
