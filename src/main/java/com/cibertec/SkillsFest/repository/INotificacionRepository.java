@@ -8,4 +8,5 @@ import java.util.List;
 public interface INotificacionRepository extends JpaRepository<Notificacion, Long> {
     List<Notificacion> findByUsuarioIdAndActivoTrueOrderByCreadoEnDesc(Long usuarioId);
     List<Notificacion> findByUsuarioIdAndLeidaFalseAndActivoTrueOrderByCreadoEnDesc(Long usuarioId);
+    List<Notificacion> findByTipoStartingWithAndActivoTrue(String tipo);
 }

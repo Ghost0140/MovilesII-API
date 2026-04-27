@@ -13,6 +13,7 @@ import com.cibertec.SkillsFest.repository.IEventoRepository;
 import com.cibertec.SkillsFest.repository.INotificacionRepository;
 import com.cibertec.SkillsFest.repository.IProyectoRepository;
 import com.cibertec.SkillsFest.repository.IUsuarioRepository;
+import com.cibertec.SkillsFest.service.InvitacionEquipoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -39,6 +40,7 @@ public class AppEquipoController {
     private final IUsuarioRepository usuarioRepository;
     private final IProyectoRepository proyectoRepository;
     private final INotificacionRepository notificacionRepository;
+    private final InvitacionEquipoService invitacionEquipoService;
 
     @GetMapping("/mis-equipos")
     public ResponseEntity<List<AppEquipoResponse>> listarMisEquipos(Authentication authentication) {
@@ -69,20 +71,21 @@ public class AppEquipoController {
         validarGithubRegistrado(usuario);
         validarUsuarioPuedeInscribirseEnEvento(usuario, evento, null);
 
-        List<Long> miembrosIds = normalizarMiembros(request.getMiembrosIds(), usuario.getId());
-        validarCupoEquipo(evento, miembrosIds);
-        validarMiembrosParaEvento(miembrosIds, usuario, evento, null);
+        List<Long> miembrosSolicitados = normalizarMiembros(request.getMiembrosIds(), usuario.getId());
+        validarCupoEquipo(evento, miembrosSolicitados);
+        validarMiembrosParaEvento(miembrosSolicitados, usuario, evento, null);
+        List<Long> miembrosConfirmados = List.of(usuario.getId());
 
         Equipo equipo = new Equipo();
         equipo.setEvento(evento);
         equipo.setSede(usuario.getSede());
         equipo.setNombre(request.getNombre().trim());
         equipo.setLider(usuario);
-        equipo.setMiembros(toJsonArray(miembrosIds));
+        equipo.setMiembros(toJsonArray(miembrosConfirmados));
         equipo.setEstado("PENDIENTE");
 
         Equipo guardado = equipoRepository.save(equipo);
-        notificarMiembrosInvitados(guardado, usuario, miembrosIds);
+        notificarMiembrosInvitados(guardado, usuario, miembrosSolicitados);
 
         return ResponseEntity.ok(mapEquipo(guardado, usuario));
     }
@@ -93,6 +96,7 @@ public class AppEquipoController {
             Authentication authentication
     ) {
         Usuario usuario = obtenerUsuarioAutenticado(authentication);
+        invitacionEquipoService.rechazarInvitacionesVencidas();
 
         Equipo equipo = equipoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Equipo no encontrado"));
@@ -134,15 +138,66 @@ public class AppEquipoController {
             throw new RuntimeException("El estudiante ya pertenece a este equipo");
         }
 
-        miembrosIds.add(nuevoMiembro.getId());
-        validarCupoEquipo(equipo.getEvento(), miembrosIds);
+        List<Long> miembrosConInvitado = new ArrayList<>(miembrosIds);
+        miembrosConInvitado.add(nuevoMiembro.getId());
+        validarCupoEquipo(equipo.getEvento(), miembrosConInvitado);
         validarUsuarioPuedeInscribirseEnEvento(nuevoMiembro, equipo.getEvento(), equipo.getId());
+        validarInvitacionPendiente(equipo, nuevoMiembro);
+
+        crearInvitacionEquipo(equipo, usuario, nuevoMiembro);
+
+        return ResponseEntity.ok(mapEquipo(equipo, usuario));
+    }
+
+    @PostMapping("/invitaciones/{notificacionId}/aceptar")
+    public ResponseEntity<AppEquipoResponse> aceptarInvitacion(
+            @PathVariable Long notificacionId,
+            Authentication authentication
+    ) {
+        Usuario usuario = obtenerUsuarioAutenticado(authentication);
+        invitacionEquipoService.rechazarInvitacionesVencidas();
+        Notificacion notificacion = obtenerInvitacionPropia(notificacionId, usuario);
+        Long equipoId = extraerEquipoId(notificacion.getTipo());
+
+        Equipo equipo = equipoRepository.findById(equipoId)
+                .orElseThrow(() -> new RuntimeException("Equipo no encontrado"));
+
+        validarEquipoPuedeAceptarInvitaciones(equipo);
+        validarMiembroAgregable(equipo, usuario);
+        validarGithubRegistrado(usuario);
+        validarUsuarioPuedeInscribirseEnEvento(usuario, equipo.getEvento(), equipo.getId());
+
+        List<Long> miembrosIds = parseMiembros(equipo.getMiembros());
+        if (!miembrosIds.contains(equipo.getLider().getId())) {
+            miembrosIds.add(0, equipo.getLider().getId());
+        }
+        if (!miembrosIds.contains(usuario.getId())) {
+            miembrosIds.add(usuario.getId());
+        }
+        validarCupoEquipo(equipo.getEvento(), miembrosIds);
 
         equipo.setMiembros(toJsonArray(miembrosIds));
         Equipo actualizado = equipoRepository.save(equipo);
-        notificarMiembroAgregado(actualizado, usuario, nuevoMiembro);
+
+        notificacion.setLeida(true);
+        notificacion.setActivo(false);
+        notificacionRepository.save(notificacion);
 
         return ResponseEntity.ok(mapEquipo(actualizado, usuario));
+    }
+
+    @PostMapping("/invitaciones/{notificacionId}/rechazar")
+    public ResponseEntity<Void> rechazarInvitacion(
+            @PathVariable Long notificacionId,
+            Authentication authentication
+    ) {
+        Usuario usuario = obtenerUsuarioAutenticado(authentication);
+        invitacionEquipoService.rechazarInvitacionesVencidas();
+        Notificacion notificacion = obtenerInvitacionPropia(notificacionId, usuario);
+        notificacion.setLeida(true);
+        notificacion.setActivo(false);
+        notificacionRepository.save(notificacion);
+        return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{id}/miembros/{usuarioId}")
@@ -230,6 +285,20 @@ public class AppEquipoController {
 
         if (!"PENDIENTE".equalsIgnoreCase(equipo.getEstado())) {
             throw new RuntimeException("Solo se pueden modificar miembros mientras el equipo está pendiente");
+        }
+
+        if (equipoCongeladoPorProyecto(equipo)) {
+            throw new RuntimeException("El equipo está congelado porque ya tiene un proyecto enviado o aprobado");
+        }
+    }
+
+    private void validarEquipoPuedeAceptarInvitaciones(Equipo equipo) {
+        if ("ELIMINADO".equalsIgnoreCase(equipo.getEstado())) {
+            throw new RuntimeException("Equipo no disponible");
+        }
+
+        if (!"PENDIENTE".equalsIgnoreCase(equipo.getEstado())) {
+            throw new RuntimeException("Solo se pueden aceptar invitaciones mientras el equipo está pendiente");
         }
 
         if (equipoCongeladoPorProyecto(equipo)) {
@@ -386,22 +455,63 @@ public class AppEquipoController {
             }
 
             usuarioRepository.findById(miembroId)
-                    .ifPresent(miembro -> notificarMiembroAgregado(equipo, lider, miembro));
+                    .ifPresent(miembro -> crearInvitacionEquipo(equipo, lider, miembro));
         }
     }
 
-    private void notificarMiembroAgregado(Equipo equipo, Usuario lider, Usuario miembro) {
+    private void validarInvitacionPendiente(Equipo equipo, Usuario miembro) {
+        boolean existe = notificacionRepository
+                .findByUsuarioIdAndActivoTrueOrderByCreadoEnDesc(miembro.getId())
+                .stream()
+                .anyMatch(n -> esInvitacionEquipo(n) && Objects.equals(extraerEquipoId(n.getTipo()), equipo.getId()));
+
+        if (existe) {
+            throw new RuntimeException("El estudiante ya tiene una invitación pendiente para este equipo");
+        }
+    }
+
+    private void crearInvitacionEquipo(Equipo equipo, Usuario lider, Usuario miembro) {
         Notificacion notificacion = new Notificacion();
         notificacion.setUsuario(miembro);
-        notificacion.setTipo("EQUIPO_INVITACION");
-        notificacion.setTitulo("Te agregaron a un equipo");
+        notificacion.setTipo("EQUIPO_INVITACION:" + equipo.getId());
+        notificacion.setTitulo("Te invitaron a un equipo");
         notificacion.setMensaje((lider.getNombres() + " " + lider.getApellidos()).trim()
-                + " te agregó al equipo " + equipo.getNombre()
+                + " te invitó al equipo " + equipo.getNombre()
                 + " para " + (equipo.getEvento() != null ? equipo.getEvento().getNombre() : "un evento") + ".");
         notificacion.setLeida(false);
         notificacion.setActivo(true);
         notificacion.setCreadoEn(LocalDateTime.now());
         notificacionRepository.save(notificacion);
+    }
+
+    private Notificacion obtenerInvitacionPropia(Long notificacionId, Usuario usuario) {
+        Notificacion notificacion = notificacionRepository.findById(notificacionId)
+                .orElseThrow(() -> new RuntimeException("Invitación no encontrada"));
+
+        if (!Boolean.TRUE.equals(notificacion.getActivo()) ||
+                notificacion.getUsuario() == null ||
+                !Objects.equals(notificacion.getUsuario().getId(), usuario.getId()) ||
+                !esInvitacionEquipo(notificacion)) {
+            throw new RuntimeException("Invitación no disponible");
+        }
+
+        return notificacion;
+    }
+
+    private boolean esInvitacionEquipo(Notificacion notificacion) {
+        return notificacion.getTipo() != null && notificacion.getTipo().startsWith("EQUIPO_INVITACION:");
+    }
+
+    private Long extraerEquipoId(String tipo) {
+        if (tipo == null || !tipo.startsWith("EQUIPO_INVITACION:")) {
+            throw new RuntimeException("Invitación de equipo inválida");
+        }
+
+        try {
+            return Long.parseLong(tipo.substring("EQUIPO_INVITACION:".length()));
+        } catch (NumberFormatException e) {
+            throw new RuntimeException("Invitación de equipo inválida");
+        }
     }
 
     private List<Long> normalizarMiembros(List<Long> miembrosIds, Long liderId) {
