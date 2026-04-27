@@ -78,6 +78,7 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
             Map<String, Double> lenguajes = obtenerLenguajes(owner, repo);
             List<Map<String, Object>> contributors = obtenerContribuidores(owner, repo);
             Set<String> pistasRepositorio = detectarPistasRepositorio(owner, repo);
+            Map<String, Integer> lineasPorContributor = obtenerLineasPorContributors(owner, repo);
 
             int totalCommits = contributors.stream()
                     .map(c -> toInt(c.getOrDefault("contributions", 0)))
@@ -91,6 +92,7 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
             for (Map<String, Object> contributor : contributors) {
                 String login = String.valueOf(contributor.get("login"));
                 int contributions = toInt(contributor.getOrDefault("contributions", 0));
+                int totalLineas = lineasPorContributor.getOrDefault(login.toLowerCase(), 0);
 
                 Optional<Usuario> usuarioOpt = usuarioRepository.findByGithubUsername(login);
 
@@ -113,11 +115,7 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
                 contribucion.setRepositorio(repositorio);
                 contribucion.setUsuario(usuario);
                 contribucion.setTotalCommits(contributions);
-
-                // IMPORTANTE:
-                // Ya no inventamos líneas con factor * 10000.
-                // Lo dejamos en null hasta implementar análisis real por archivos.
-                contribucion.setTotalLineas(null);
+                contribucion.setTotalLineas(totalLineas);
 
                 contribucion.setScoreFrontend(bd(scoreBase.get("FRONTEND") * factor));
                 contribucion.setScoreBackend(bd(scoreBase.get("BACKEND") * factor));
@@ -693,6 +691,58 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
         } catch (Exception e) {
             throw new RuntimeException("Error leyendo contribuidores de GitHub: " + e.getMessage());
         }
+    }
+
+    private Map<String, Integer> obtenerLineasPorContributors(String owner, String repo) {
+        Map<String, Integer> lineas = new HashMap<>();
+
+        try {
+            String body = "";
+
+            for (int intento = 1; intento <= 3; intento++) {
+                body = githubGet("/repos/" + owner + "/" + repo + "/stats/contributors");
+
+                if (body != null && !body.isBlank()) {
+                    break;
+                }
+
+                Thread.sleep(1200);
+            }
+
+            if (body == null || body.isBlank()) {
+                log.warn("GitHub stats/contributors devolvió una respuesta vacía para {}/{}", owner, repo);
+                return lineas;
+            }
+
+            JsonNode root = objectMapper.readTree(body);
+
+            if (!root.isArray()) {
+                log.warn("GitHub stats/contributors no devolvió un arreglo para {}/{}", owner, repo);
+                return lineas;
+            }
+
+            for (JsonNode contributor : root) {
+                String login = contributor.path("author").path("login").asText("");
+
+                if (login.isBlank()) {
+                    continue;
+                }
+
+                int total = 0;
+
+                for (JsonNode week : contributor.path("weeks")) {
+                    total += week.path("a").asInt(0);
+                    total += week.path("d").asInt(0);
+                }
+
+                lineas.put(login.toLowerCase(), total);
+            }
+
+        } catch (Exception e) {
+            log.warn("No se pudo obtener total de líneas por contributor para {}/{}: {}", owner, repo, e.getMessage());
+        }
+
+        return lineas;
     }
 
     private Set<String> detectarPistasRepositorio(String owner, String repo) {
