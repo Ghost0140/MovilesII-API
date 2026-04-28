@@ -14,35 +14,26 @@ import java.util.Map;
 import java.util.function.Function;
 import org.springframework.beans.factory.annotation.Value;
 
-
 @Service
 public class JwtService {
 
 	@Value("${api.security.token.secret}")
     private String secretKey;
-	
-    // Generar Token para un usuario
     public String generateToken(UserDetails userDetails) {
         return generateToken(new HashMap<>(), userDetails);
     }
-
-    // Generar Token con datos extra (claims)
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
         return Jwts.builder()
                 .claims(extraClaims)
-                .subject(userDetails.getUsername()) // El email
+                .subject(userDetails.getUsername())
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // Expira en 24 horas
-                .signWith(getSignInKey(), Jwts.SIG.HS256) // Sintaxis JJWT 0.12.x
+                .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24))
+                .signWith(getSignInKey(), Jwts.SIG.HS256)
                 .compact();
     }
-
-    // Leer el email (subject) de un token
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
-
-    // Validar si el token pertenece al usuario y no ha expirado
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
         return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
@@ -63,7 +54,7 @@ public class JwtService {
 
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
-                .verifyWith(getSignInKey()) // Sintaxis JJWT 0.12.x
+                .verifyWith(getSignInKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

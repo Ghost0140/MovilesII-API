@@ -17,8 +17,6 @@ public class Repositorio {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    // Relación con Proyecto
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "proyecto_id", nullable = false)
     private Proyecto proyecto;
@@ -30,17 +28,11 @@ public class Repositorio {
 
     @Column(name = "total_commits")
     private Integer totalCommits;
-
-    // Guardamos los lenguajes como JSON String
     @Column(columnDefinition = "TEXT")
     private String lenguajes;
 
     @Column(name = "ultimo_analisis")
     private LocalDateTime ultimoAnalisis;
-
-    // ==============================
-    // NUEVOS CAMPOS PARA EL RADAR
-    // ==============================
 
     @Column(name = "estado_analisis", length = 30)
     private String estadoAnalisis;

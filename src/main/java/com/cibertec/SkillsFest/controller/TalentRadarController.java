@@ -29,12 +29,6 @@ public class TalentRadarController {
     private final TalentRadarServiceImpl talentRadarService;
     private final IRepositorioRepository repositorioRepository;
     private final IContribucionRepository contribucionRepository;
-
-    /**
-     * Analiza un proyecto con Talent Radar.
-     *
-     * POST /api/radar/analizar-proyecto/{proyectoId}
-     */
     @PostMapping("/analizar-proyecto/{proyectoId}")
     public ResponseEntity<?> analizarProyecto(@PathVariable Long proyectoId) {
         try {
@@ -68,12 +62,6 @@ public class TalentRadarController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
-
-    /**
-     * Genera rankings por área para un evento.
-     *
-     * POST /api/radar/generar-rankings/{eventoId}
-     */
     @PostMapping("/generar-rankings/{eventoId}")
     public ResponseEntity<?> generarRankingsPorArea(@PathVariable Long eventoId) {
         Map<String, Object> response = new HashMap<>();
@@ -97,12 +85,6 @@ public class TalentRadarController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
-
-    /**
-     * Actualiza el portafolio público con datos del Radar.
-     *
-     * POST /api/radar/actualizar-portfolio/{usuarioId}
-     */
     @PostMapping("/actualizar-portfolio/{usuarioId}")
     public ResponseEntity<?> actualizarPortafolioRadar(@PathVariable Long usuarioId) {
         Map<String, Object> response = new HashMap<>();
@@ -126,12 +108,6 @@ public class TalentRadarController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
-
-    /**
-     * Obtiene ranking de una área específica.
-     *
-     * GET /api/radar/rankings/{eventoId}/{area}
-     */
     @GetMapping("/rankings/{eventoId}/{area}")
     public ResponseEntity<?> obtenerRankingsPorArea(
             @PathVariable Long eventoId,
@@ -163,12 +139,6 @@ public class TalentRadarController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
-
-    /**
-     * Estado real del análisis de un proyecto.
-     *
-     * GET /api/radar/status/proyecto/{proyectoId}
-     */
     @GetMapping("/status/proyecto/{proyectoId}")
     public ResponseEntity<?> verificarEstadoAnalisis(@PathVariable Long proyectoId) {
         Map<String, Object> response = new HashMap<>();
