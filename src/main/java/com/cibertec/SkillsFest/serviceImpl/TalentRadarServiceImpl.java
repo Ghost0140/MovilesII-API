@@ -394,10 +394,6 @@ public class TalentRadarServiceImpl implements ITalentRadarService {
                 "gherkin"
         );
 
-        // ===========================
-        // PISTAS POR ESTRUCTURA
-        // ===========================
-
         if (pistasRepositorio.contains("react")) frontend += 20;
         if (pistasRepositorio.contains("vite")) frontend += 10;
         if (pistasRepositorio.contains("vue")) frontend += 15;

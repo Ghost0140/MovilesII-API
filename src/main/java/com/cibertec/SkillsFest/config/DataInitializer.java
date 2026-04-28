@@ -17,7 +17,7 @@ public class DataInitializer {
     public CommandLineRunner initDatabase(IUsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
         return args -> {
             if (usuarioRepository.count() == 0) {
-                System.out.println("🌱 [SEED] Base de datos vacía. Iniciando carga de usuarios con BCrypt...");
+                System.out.println("[SEED] Base de datos vacia. Iniciando carga de usuarios con BCrypt.");
 
                 List<Usuario> usuariosIniciales = Arrays.asList(
                     crearUsuario(1L, "Juan Carlos", "Rodríguez", "admin.ln@cibertec.edu.pe", "123456", "12345678", null, null, null, null, "ADMIN,ORGANIZADOR", passwordEncoder),
@@ -37,9 +37,9 @@ public class DataInitializer {
                 );
 
                 usuarioRepository.saveAll(usuariosIniciales);
-                System.out.println("✅ [SEED] 14 usuarios creados exitosamente. Contraseñas seguras con BCrypt.");
+                System.out.println("[SEED] 14 usuarios creados exitosamente. Contrasenas seguras con BCrypt.");
             } else {
-                System.out.println("⚡ [SEED] La base de datos ya contiene usuarios. Omitiendo inicialización.");
+                System.out.println("[SEED] La base de datos ya contiene usuarios. Omitiendo inicializacion.");
             }
         };
     }

@@ -17,13 +17,11 @@ import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/sedes")
-@CrossOrigin(origins = "*") // Permiso para React
+@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class SedeController {
 	
 	private final ISedeService sedeService;
-
-    // GET: http://localhost:9090/api/sedes
     @GetMapping
     public ResponseEntity<?> listarSedes() {
         List<Sede> sedes = sedeService.obtenerSedesActivas();
